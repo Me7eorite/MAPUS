@@ -10,7 +10,7 @@
     "build:max": "node build/ui.mjs && node build/build.mjs --level=max",
     "pack": "npm run pack:crx && npm run pack:dsh",
     "pack:crx": "node build/ui.mjs && node build/build.mjs --level=max && node build/pack.mjs",
-    "pack:dsh": "npm pack ./integrations/dsh-mapus --pack-destination release",
+    "pack:dsh": "bash tools/pack-dsh.sh",
     "pack:min": "node build/ui.mjs && node build/build.mjs --level=min && node build/pack.mjs",
     "test": "node --test"
   },
