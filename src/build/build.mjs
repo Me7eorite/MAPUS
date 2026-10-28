@@ -270,6 +270,7 @@ if (fs.existsSync(agentBundle)) fs.copyFileSync(agentBundle, path.join(OUT, 'pop
 copyDir(path.join(ROOT, 'icons'), path.join(OUT, 'icons'), n => /^(icon(16|32|48|64|128|256)|logo)\.png$/.test(n));
 copyDir(path.join(ROOT, 'popup'), path.join(OUT, 'popup'), n => n.endsWith('.css') || n.endsWith('.html'));
 if (fs.existsSync(path.join(ROOT, 'dashboard'))) copyDir(path.join(ROOT, 'dashboard'), path.join(OUT, 'dashboard'), n => n.endsWith('.css') || n.endsWith('.html'));
+copyDir(path.join(ROOT, 'ui'), path.join(OUT, 'ui'), n => n.endsWith('.css'));
 fs.copyFileSync(path.join(ROOT, 'scripts.json'), path.join(OUT, 'scripts.json'));
 
 const manifest = buildManifest();

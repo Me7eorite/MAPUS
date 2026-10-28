@@ -1,0 +1,31 @@
+/* ============================================================
+   MAPUS ui/base.css — 两端共享基础样式
+   仅补充：键盘焦点可见、减少动画偏好、选区颜色。
+   不改变任何显隐协议（.active/.show/.open/.expanded/.hidden/[hidden]），
+   不引入字体/CDN/远程资源。
+   ============================================================ */
+
+/* 键盘焦点一律可见。原有自定义焦点样式（.guard/.think-head 等用
+   outline:none + box-shadow 环）specificity 更高，仍按原样生效。 */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: inherit;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/* 尊重系统"减少动态效果"设置：关闭装饰性动画/过渡，
+   保留瞬时状态切换（透明度直接落位，不闪烁）。 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

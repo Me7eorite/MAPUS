@@ -605,3 +605,89 @@ code { font-family: var(--mono); font-size: 11px; background: var(--surface-3); 
   transition: .15s;
 }
 .finding-del:hover { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+
+
+
+
+/* ============================================================
+   MAPUS-UI-PATCH v1（2026-10-28）— 工作台视觉改造
+   追加在文件末尾以获得后置级联优先级。只动布局/字号/控件高度，
+   不改显隐协议（.panel.active/.tab.active/.task.open/.mask.hidden/
+   .toast.show）与任何 ID/类名。回退：整段删除即恢复原样式。
+   ============================================================ */
+
+/* ---- E. tabs 回到普通文档流：不再按 top:57px 吸顶，
+   消除中间宽度/缩放下 topbar 换行后的遮挡与空隙 ---- */
+.tabs { position: static; }
+.tab { min-height: 34px; }
+
+/* ---- F. .launch.compact 窄屏单列（specificity (0,2,0)，
+   必须与 .launch 同级覆盖，否则窄屏仍是双列） ---- */
+@media (max-width: 820px) {
+  .launch { grid-template-columns: 1fr; }
+  .launch.compact { grid-template-columns: 1fr; }
+}
+
+/* ---- 控件高度：常规 34px，小号按钮保持紧凑；输入框聚焦环可见 ---- */
+.btn { min-height: 34px; }
+.btn.small, .btn.sm { min-height: 28px; }
+input:not([type="checkbox"]):not([type="radio"]),
+select { min-height: 34px; }
+input:not([type="checkbox"]):not([type="radio"]):focus,
+select:focus,
+textarea:focus,
+.area:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* ---- C. 字号：说明/代码 ≥12，正文 13–14 ---- */
+body { font-size: 13.5px; }
+p { font-size: 12px; }
+label { font-size: 12px; }
+.hint-line { font-size: 12px; }
+.empty { font-size: 12.5px; }
+.top-stat { font-size: 12px; }
+.gate-chip { font-size: 12px; }
+.brand-sub { font-size: 11.5px; }
+.stat-label { font-size: 12px; }
+.stat-foot { font-size: 11.5px; }
+.mini-url { font-size: 12.5px; }
+.mini-meta { font-size: 11.5px; }
+.task-url { font-size: 13px; }
+.task-tag { font-size: 11.5px; }
+.task-progress { font-size: 12px; }
+.task-error { font-size: 12px; }
+.log-line { font-size: 12px; }
+.finding-title { font-size: 13.5px; }
+.finding-meta { font-size: 12px; }
+.cwe-chip { font-size: 11px; }
+.shot-chip { font-size: 11px; }
+.detail-sub { font-size: 12px; }
+.profile-name { font-size: 13px; }
+.profile-meta { font-size: 12px; }
+.am-main b { font-size: 13.5px; }
+.am-sub { font-size: 12px; }
+.pf-msg { font-size: 12px; }
+.switch-title { font-size: 13px; }
+.switch-desc { font-size: 12px; }
+.tool-btn b { font-size: 12.5px; }
+.tool-btn span { font-size: 11.5px; }
+.rules-stat { font-size: 12px; }
+.field-row .label { font-size: 12px; }
+.tiny { font-size: 11.5px; }
+code { font-size: 12px; }
+.input { font-size: 12.5px; }
+textarea.input { font-size: 12px; }
+.site-findings { font-size: 11.5px; }
+.finding-del { font-size: 11px; }
+.tag { font-size: 11.5px; }
+.status { font-size: 11.5px; }
+.sev { font-size: 11px; }
+/* HTTP 报文/纯文本证据：局部横向滚动，不再逐字断行 */
+.http-packet, .plain {
+  font-size: 12px;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}

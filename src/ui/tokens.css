@@ -1,0 +1,99 @@
+/* ============================================================
+   MAPUS ui/tokens.css — 共享设计令牌（popup 侧边栏 + dashboard 工作台）
+   机制：复刻原两套 CSS 的主题选择器结构（:root / prefers-color-scheme /
+   :root[data-theme="dark"]），并在两套 CSS 之后加载，仅覆盖变量，
+   不触碰任何状态类或显隐协议。主题存储与切换逻辑（data-theme 属性）
+   完全不变。
+   对应规格：亮 #F6F7F9/#FFFFFF/#182230/#526176/#2459D3/#D9DFE7；
+             暗 #101318/#181D25/#E6ECF3/#A6B2C2/#8BAEFF/#343E4D。
+   ============================================================ */
+
+:root {
+  /* 表面与边框 */
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #fafbfc;
+  --surface-3: #eef1f5;
+  --border: #d9dfe7;
+  --border-strong: #c2cbd8;
+
+  /* 文字：正文 / 次级 / 辅助（#182230 正文对比度 > 12:1；辅助 ≥ 4.5:1） */
+  --text: #182230;
+  --text-2: #526176;
+  --text-3: #66738a;
+
+  /* 强调与语义色（亮色下按对白底对比度选取，不只靠色相表达等级） */
+  --accent: #2459d3;
+  --accent-hover: #1c48b4;
+  --accent-soft: #e8eefb;
+  --danger: #d33b40;
+  --danger-soft: #fce9ea;
+  --warn: #a65e08;
+  --warn-soft: #fbf0dc;
+  --ok: #127a46;
+  --ok-soft: #e5f4eb;
+  --purple: #6d4fd8;
+  --purple-soft: #efebfc;
+
+  /* 形状：容器 10px / 控件 7px（原 12px / 9px，向下收敛） */
+  --radius: 10px;
+  --radius-sm: 7px;
+
+  --shadow-sm: 0 1px 2px rgba(24, 34, 48, .05);
+  --shadow-md: 0 6px 18px rgba(24, 34, 48, .09);
+
+  --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Consolas, monospace;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101318;
+    --surface: #181d25;
+    --surface-2: #1d242e;
+    --surface-3: #252d3a;
+    --border: #343e4d;
+    --border-strong: #47556a;
+    --text: #e6ecf3;
+    --text-2: #a6b2c2;
+    --text-3: #8593a8;
+    --accent: #8baeff;
+    --accent-hover: #a5c1ff;
+    --accent-soft: #22304c;
+    --danger: #ff8085;
+    --danger-soft: #3a2326;
+    --warn: #f0b25e;
+    --warn-soft: #332816;
+    --ok: #53d68c;
+    --ok-soft: #16311f;
+    --purple: #a48fff;
+    --purple-soft: #262040;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
+    --shadow-md: 0 6px 18px rgba(0, 0, 0, .5);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #101318;
+  --surface: #181d25;
+  --surface-2: #1d242e;
+  --surface-3: #252d3a;
+  --border: #343e4d;
+  --border-strong: #47556a;
+  --text: #e6ecf3;
+  --text-2: #a6b2c2;
+  --text-3: #8593a8;
+  --accent: #8baeff;
+  --accent-hover: #a5c1ff;
+  --accent-soft: #22304c;
+  --danger: #ff8085;
+  --danger-soft: #3a2326;
+  --warn: #f0b25e;
+  --warn-soft: #332816;
+  --ok: #53d68c;
+  --ok-soft: #16311f;
+  --purple: #a48fff;
+  --purple-soft: #262040;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, .5);
+}

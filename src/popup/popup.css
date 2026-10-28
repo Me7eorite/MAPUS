@@ -1004,6 +1004,7 @@ textarea.input { min-height: 76px; resize: vertical; font-family: var(--mono); f
   transition: .16s;
 }
 .prompt-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+/* 「更多建议」：只做一行文字，不加边框，别在空场景里再堆一个卡片 */
 .prompt-more {
   align-self: center;
   padding: 2px 6px;
@@ -1077,6 +1078,7 @@ textarea.input { min-height: 76px; resize: vertical; font-family: var(--mono); f
   line-height: 1.6;
 }
 .md .md-code code { background: transparent; padding: 0; }
+/* 表格：侧栏很窄，宽表靠横向滚动，不要把气泡撑破 */
 .md .md-table-wrap {
   margin: 6px 0;
   max-width: 100%;
@@ -1109,6 +1111,7 @@ textarea.input { min-height: 76px; resize: vertical; font-family: var(--mono); f
   white-space: nowrap;
 }
 .md .md-table td { color: var(--text-2); }
+/* 链接：默认不带下划线，hover 才加，跟侧栏其他文字按钮一致 */
 .md a { color: var(--accent); text-decoration: none; }
 .md a:hover { text-decoration: underline; }
 .md .md-img-ref { color: var(--text-2); }
@@ -1125,6 +1128,7 @@ textarea.input { min-height: 76px; resize: vertical; font-family: var(--mono); f
   border-left: 2px solid var(--border-strong);
   color: var(--text-2);
 }
+/* 任务列表：勾选框用 CSS 画，不引图标也不改 DOM 语义 */
 .md .md-list-task { list-style: none; padding-left: 2px; }
 .md .md-task { display: flex; align-items: flex-start; gap: 6px; }
 .md .md-check {
@@ -1813,6 +1817,8 @@ textarea.input { min-height: 76px; resize: vertical; font-family: var(--mono); f
 .off-hint { font-size: 10px; color: var(--text-3); opacity: .85; }
 
 
+/* 报告页：.card 自身没有内边距，所以这一页自己给出盒子内缩，
+   否则标题/按钮/下拉框会直接压在卡片边框上（右侧尤其明显）。 */
 .fd-summary { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
 .fd-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .fd-title { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: .1px; }
@@ -1832,6 +1838,7 @@ textarea.input { min-height: 76px; resize: vertical; font-family: var(--mono); f
   min-width: 0;
   font-size: 11px;
   color: var(--text-3);
+  /* 侧栏拉窄时「条风险」会被逐字折行，读起来像竖排 */
   white-space: nowrap;
 }
 .fd-chips { display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end; margin-left: auto; }
@@ -1858,6 +1865,8 @@ textarea.input { min-height: 76px; resize: vertical; font-family: var(--mono); f
 .sev-low { background: var(--accent-soft); color: var(--accent); }
 .sev-info { background: var(--surface-3); color: var(--text-2); }
 .fd-tools { display: flex; align-items: center; gap: 8px; }
+/* 下拉框与按钮必须同高同基线：select 是 31px、.btn 是 33px，
+   不统一就永远差 2px，看起来像没对齐。 */
 .fd-filter { flex: 1 1 auto; min-width: 0; height: 30px; padding: 0 8px; }
 .fd-tools .btn { flex: 0 0 auto; height: 30px; padding: 0 12px; }
 .fd-item { padding: 9px 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
@@ -2129,3 +2138,184 @@ textarea.input { min-height: 76px; resize: vertical; font-family: var(--mono); f
 .model-item.empty { cursor: default; color: var(--text-3); font-size: 11px; }
 .model-item.empty:hover { background: transparent; }
 .model-item.setting { border-top: 1px dashed var(--border); border-radius: 0 0 8px 8px; margin-top: 3px; padding-top: 8px; }
+
+
+
+/* ============================================================
+   MAPUS-UI-PATCH v1（2026-10-28）— 侧边栏视觉改造
+   追加在文件末尾：本段需要覆盖上方文件尾的聊天区覆盖段（2028–2044）
+   与 372px 媒体查询。只动字号/间距/换行/滚动，不改显隐协议
+   （.active/.show/.open/.expanded/.hidden/[hidden]）与任何 ID/类名。
+   回退：整段删除即恢复原样式。
+   ============================================================ */
+
+/* ---- A. 顶部分层：品牌/总开关一行，域名独立成行，操作可换行 ---- */
+.topbar {
+  flex-wrap: wrap;
+  row-gap: 6px;
+  padding: 10px 12px;
+}
+.topbar-actions { margin-left: auto; }
+/* 域名独占第二行（flex order 不改 DOM，不影响 #hostLine 的 JS 写入） */
+.brand-host {
+  order: 10;
+  flex: 1 1 100%;
+  font-size: 12px;
+  white-space: nowrap;
+}
+/* 图标点击区域 ≥32px（覆盖 372px 断点里的 26px 收缩） */
+.icon-btn { width: 32px; height: 32px; }
+.icon-btn svg { width: 17px; height: 17px; }
+.icon-btn.sm { width: 28px; height: 28px; }
+.icon-btn.sm svg { width: 15px; height: 15px; }
+.guard { font-size: 11.5px; padding: 3px 9px 3px 4px; }
+.status-actions .btn { min-height: 32px; }
+
+/* ---- B. 导航可换行：320px 下七个入口全部可见，不再藏进横向滚动区 ---- */
+.nav {
+  flex-wrap: wrap;
+  overflow-x: visible;
+  row-gap: 3px;
+  padding: 6px 8px;
+}
+.nav-item {
+  flex: 1 1 auto;
+  min-height: 32px;
+  font-size: 12px;
+}
+
+/* ---- C. 正文与说明字号：正文 13–14，说明/代码 ≥12 ---- */
+.group-title { font-size: 11px; }
+.row { font-size: 12.5px; }
+.row-sub { font-size: 12px; }
+.row-badge { font-size: 10.5px; }
+.kv-row { font-size: 12.5px; }
+.switch-title { font-size: 13px; }
+.switch-desc { font-size: 12px; }
+.item { font-size: 12px; }
+.section-head .name { font-size: 12.5px; }
+.section-head .count { font-size: 10.5px; }
+.hook-name { font-size: 12.5px; }
+.hook-desc { font-size: 12px; }
+.hook-config .field-name { font-size: 11.5px; }
+.hook-config .error { font-size: 12px; }
+.hook-config input[type="text"], .hook-config textarea { font-size: 12px; }
+.route-row { font-size: 12px; }
+.route-row .m { font-size: 10px; }
+.route-row .n { font-size: 11px; }
+.notice { font-size: 12px; }
+.fp-item .fp-name { font-size: 12.5px; }
+.fp-item .fp-desc { font-size: 12px; }
+.metric-label { font-size: 11.5px; }
+.metric-value small { font-size: 11px; }
+.tool-btn b { font-size: 12.5px; }
+.tool-btn span { font-size: 11.5px; }
+.status-meta { font-size: 11.5px; }
+.tiny { font-size: 11.5px; }
+.chip { font-size: 11.5px; }
+.chip i { font-size: 10.5px; }
+.empty-title { font-size: 13px; }
+.empty-desc { font-size: 12px; }
+.loading-inline { font-size: 12px; }
+.off-desc { font-size: 12.5px; }
+.off-hint { font-size: 11px; }
+textarea.input, input.input, select.input { font-size: 12.5px; }
+textarea.input { font-size: 12px; }
+input.input, select.input { min-height: 32px; }
+.search input { font-size: 12.5px; min-height: 32px; }
+.btn { min-height: 32px; }
+.btn.sm { min-height: 28px; }
+.about-slogan { font-size: 12.5px; }
+.about-link-desc { font-size: 12px; }
+.about-engine-desc { font-size: 12px; }
+.about-ver { font-size: 11px; }
+.about-engine-meta { font-size: 10.5px; }
+.about-link-by { font-size: 11px; }
+.about-foot { font-size: 10.5px; }
+
+/* ---- D. 聊天：正文可读，代码/JSON 局部横向滚动，正文自然换行 ----
+   注意：此处覆盖上方文件尾的 pre-wrap + break-all 组合（原顺序保留，
+   仅在末尾以相同 specificity 后置覆盖）。聊天气泡/思考正文保持
+   overflow-wrap:anywhere 自然换行；代码块恢复 pre + 横向滚动。 */
+.chat-model-name { font-size: 12.5px; }
+.chat-model-sub { font-size: 11.5px; }
+.chat-empty-desc { font-size: 12.5px; }
+.prompt-chip { font-size: 12.5px; }
+.prompt-more { font-size: 11.5px; }
+.link-btn { font-size: 11.5px; }
+.msg .bubble { font-size: 13px; }
+.bubble.folded em { font-size: 10.5px; }
+.fold-sum { font-size: 12px; }
+.fold-meta { font-size: 10.5px; }
+.msg-error { font-size: 12.5px; }
+.msg-note { font-size: 11px; }
+.msg-usage { font-size: 10.5px; }
+.chat-input { font-size: 13px; }
+.chat-hint { font-size: 11.5px; }
+.md { font-size: 13px; }
+.md .md-h { font-size: 13.5px; }
+.md code { font-size: 12px; }
+.md .md-code { font-size: 12px; }
+.md .md-code code { white-space: pre; word-break: normal; overflow-wrap: normal; }
+.md .md-table { font-size: 12px; }
+.think-title { font-size: 11.5px; }
+.think-step { font-size: 10.5px; }
+.think-meta { font-size: 10.5px; }
+.think-body { font-size: 12px; }
+.think-peek { font-size: 11.5px; }
+.tool-name { font-size: 12px; }
+.tool-state { font-size: 11px; }
+.tool-step { font-size: 10px; }
+.tool-args-sum { font-size: 11px; }
+.tool-ms { font-size: 10.5px; }
+.tool-line { font-size: 10.5px; }
+.tool-peek { font-size: 11px; }
+.tool-args, .tool-preview {
+  font-size: 12px;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+.sess-preview { font-size: 12px; }
+.sess-scope button { font-size: 12px; }
+.sess-empty { font-size: 12px; }
+.sess-time, .sess-meta { font-size: 10.5px; }
+.sess-foot { font-size: 10.5px; }
+.empty-recent-title { font-size: 10.5px; }
+.empty-recent-item { font-size: 12px; }
+.empty-recent-item em { font-size: 10.5px; }
+.model-item b { font-size: 12.5px; }
+.model-item span { font-size: 11px; }
+.clamp-btn { font-size: 11.5px; }
+
+/* 发现页：摘要省略、详情完整可读（G）；HTTP 报文横向滚动 */
+.fd-name { font-size: 13px; }
+.fd-chip { font-size: 11px; }
+.sev { font-size: 10.5px; }
+.fd-sub { font-size: 11.5px; }
+.fd-kv { font-size: 12.5px; }
+.fd-mono { font-size: 12px; }
+.fd-desc { font-size: 12.5px; }
+.fd-packet {
+  font-size: 12px;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+.fd-empty-desc { font-size: 12px; }
+.fd-site-tag { font-size: 11px; }
+.fd-filter { height: 32px; }
+.fd-tools .btn { height: 32px; }
+
+/* ---- 随新 accent 收敛的硬编码色（原 rgba(47,107,255,…)） ---- */
+.hero {
+  background:
+    radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%),
+    var(--surface);
+}
+.hook-card.on {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.chip.on i { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.progress > i { background: linear-gradient(90deg, var(--accent), var(--accent-hover)); }
