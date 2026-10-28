@@ -34,6 +34,6 @@ export function line(value) {
   try {
     return JSON.stringify(value) + '\n'
   } catch {
-    return JSON.stringify({ type: 'error', message: '事件无法序列化为 JSON' }) + '\n'
+    return JSON.stringify({ type: 'error', message: 'event cannot be serialized to JSON' }) + '\n'
   }
 }

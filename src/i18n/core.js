@@ -38,6 +38,7 @@
             params[index] === undefined ? token : string(params[index])]);
     }
     function register(messages) {
+        let added = false;
         for (const [key, value] of Object.entries(messages)) {
             if (!value || typeof value.en !== 'string' || typeof value.zh_CN !== 'string') {
                 throw new Error('Invalid translation entry: ' + key);
@@ -46,7 +47,8 @@
             entries.set(key, Object.freeze({ ...value }));
             for (const template of new Set([value.en, value.zh_CN])) {
                 if (!/\{\d+\}/.test(template)) { if (!exact.has(template)) exact.set(template, key); continue; }
-                if (template.replace(/\{\d+\}/g, '').trim().length < 4) continue;
+                const skeleton = template.replace(/\{\d+\}/g, '').trim();
+                if (skeleton.length < 2) continue;
                 const indices = [];
                 let expression = '', last = 0;
                 for (const match of template.matchAll(/\{(\d+)\}/g)) {
@@ -54,9 +56,11 @@
                     indices.push(Number(match[1])); last = match.index + match[0].length;
                 }
                 expression += template.slice(last).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                patterns.push({ key, indices, regex: new RegExp('^' + expression + '$') });
+                patterns.push({ key, indices, weight: skeleton.length, regex: new RegExp('^' + expression + '$') });
+                added = true;
             }
         }
+        if (added) patterns.sort((a, b) => b.weight - a.weight);
     }
     function t(key, params = [], language = locale) {
         const entry = entries.get(key);

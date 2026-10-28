@@ -23,7 +23,7 @@ const off = ctx.on('session/event', (session, event) => {
   try {
     pool.onSessionEvent(session, event)
   } catch (error) {
-    log('事件路由失败', { error: error && error.message })
+    log('failed to route a session event', { error: error && error.message })
   }
 })
 if (typeof off === 'function') {
@@ -34,7 +34,7 @@ const offStream = ctx.on('agent/assistant-stream', payload => {
   try {
     pool.onAssistantStream(payload && payload.agent, payload && payload.frame)
   } catch (error) {
-    log('流式帧路由失败', { error: error && error.message })
+    log('failed to route a stream frame', { error: error && error.message })
   }
 })
 if (typeof offStream === 'function') {
@@ -48,14 +48,14 @@ if (typeof offStream === 'function') {
       ctx.effect(() =>
         skills.register({
           name: 'mapus-browser',
-          description: '用 MAPUS 工具读页面、跑扫描、驱动真实浏览器并取证时加载',
+          description: 'Load this when driving a real browser with MAPUS tools to read pages, run scans and collect evidence',
           content,
           source: 'runtime',
           provider: 'dsh-mapus',
         }),
       )
     } catch (error) {
-      log('注册 mapus-browser skill 失败（不影响工具）', { error: error && error.message })
+      log('failed to register the mapus-browser skill (tools are unaffected)', { error: error && error.message })
     }
   }
 
@@ -63,25 +63,18 @@ if (typeof offStream === 'function') {
     let closed = false
     bridge
       .start()
-      .then(({ url, port }) => {
+      .then(({ url }) => {
         if (closed) return
         const token = config.token
-        const source = config.tokenSource === 'generated' ? '首次启动已生成' : config.tokenSource === 'file' ? '沿用已保存' : '来自 patch 配置'
+        const source = config.tokenSource === 'generated' ? 'generated' : config.tokenSource === 'file' ? 'reused' : 'from patch config'
         const lines = [
-          '',
-          '  ┌─ dsh-mapus 已就绪 ─────────────────────────────────────────',
-          `  │ 地址   ${url}`,
-          `  │ Token  ${token}   (${source}, ${tokenFile()})`,
-          `  │ 后端   provider=${config.provider || '(profile 默认)'} model=${config.model || '(profile 默认)'}`,
-          '  │ 下一步 打开 MAPUS 控制大屏 → 设置 → 智能体模型 → 执行后端选「DeepSeek Harness」',
-          `  │        填 http://${config.host}:${port} 与上面的 Token，点「测试连接」`,
-          '  └────────────────────────────────────────────────────────────',
-          '',
+          `[dsh-mapus] ready  ${url}  token ${token}  (${source}, ${tokenFile()})`,
+          `[dsh-mapus] provider ${config.provider || 'profile default'}  model ${config.model || 'profile default'}  ·  paste the url and token into MAPUS → Settings → Agent model`,
         ]
         console.log(lines.join('\n'))
       })
       .catch(error => {
-        log('桥启动失败', { error: error && error.message })
+        log('bridge failed to start', { error: error && error.message })
       })
     return async () => {
       closed = true

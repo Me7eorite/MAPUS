@@ -1,104 +1,116 @@
 # dsh-mapus
 
-MAPUS 的 DeepSeek Harness 插件：把 **MAPUS 侧边栏**接成 DSH 的一个客户端，把
-**MAPUS 的浏览器能力**注册成 DSH 的工具。
+The DeepSeek Harness plugin for MAPUS: it turns the **MAPUS side panel** into a
+DSH client, and exposes **the browser capabilities of MAPUS** as DSH tools.
 
-装上之后，侧边栏里那场对话仍然是那场对话，但思考和编排交给了 Harness 的 agent
-循环；工具执行仍然在浏览器里发生（只有扩展能操作页面）。切换的是"谁在思考"，
-不是界面的样子。
+Once installed, the conversation in the side panel is still the same
+conversation, but thinking and orchestration move to the Harness agent loop.
+Tool execution still happens in the browser (only the extension can drive a
+page). What changes is *who thinks*, not what the UI looks like.
 
 ```
-MAPUS 侧边栏 (React) ──port──> background/dsh-core.js
-                                    │  POST /v1/turn   (NDJSON 事件流)
-                                    │  POST /v1/rpc    (工具结果回传)
+MAPUS side panel (React) ──port──> background/dsh-core.js
+                                    │  POST /v1/turn   (NDJSON event stream)
+                                    │  POST /v1/rpc    (tool results back)
                                     ▼
-                     dsh-mapus 桥 (127.0.0.1:7355, 本插件)
-                        ├─ 会话   ctx.agents.create / resume   ← 一轮对话一个 DSH 会话
-                        ├─ 事件   ctx.on('session/event')      → 翻译成侧边栏事件
-                        ├─ 流式   ctx.on('agent/assistant-stream') → 逐 token 的 delta
-                        └─ 工具   mapus_* (agent 作用域)        → 回浏览器执行
+                       dsh-mapus bridge (127.0.0.1:7355, this plugin)
+                        ├─ session ctx.agents.create / resume   ← one DSH session per turn
+                        ├─ events  ctx.on('session/event')      → projected into panel events
+                        ├─ stream  ctx.on('agent/assistant-stream') → per-token deltas
+                        └─ tools   mapus_* (agent-scoped)        → executed in the browser
 ```
 
-## 快速开始（三步）
+## Quick start (three steps)
 
 ```bash
-# 1. 起桥（要求已经装进 profile，见下方「安装到 profile」；当前 dsh 不认 --patch）
-export DEEPSEEK_API_KEY=sk-...        # dsh 那边用什么模型就配哪个，见下方「模型」
+# 1. start the bridge (it must already be installed into a profile, see
+#    "Install into a profile" below; the current dsh has no --patch)
+export DEEPSEEK_API_KEY=sk-...        # whichever model dsh uses, see "Models"
 bin/start.sh
 
-# 2. 控制台会打印地址和 Token，抄下来
-#    ┌─ dsh-mapus 已就绪 ──────────────
-#    │ 地址   http://127.0.0.1:7355
-#    │ Token  8ccb0a7d…
-#    └─────────────────────────────────
+# 2. the console prints the url and token
+#    [dsh-mapus] ready  http://127.0.0.1:7355  token <token>  (generated, ~/.dsh/mapus-bridge/token)
 
-# 3. MAPUS 控制大屏 → 设置 → 智能体模型：
-#    执行后端 = DeepSeek Harness → 填地址和 Token → 测试连接（返回工具数量即通）→ 保存
+# 3. MAPUS dashboard → Settings → Agent model:
+#    backend = DeepSeek Harness → paste the url and token → Test connection
+#    (it answers with the tool count when the bridge is reachable) → Save
 ```
 
-之后在「智能体」面板里正常说话就行：界面、会话、工具卡都不变，变的是思考和编排
-交给了 dsh 的 agent 循环。想换回自带后端，把「执行后端」切回内置即可，两套配置互不覆盖。
+After that just talk to the Agent panel: the UI, the session and the tool cards
+stay the same; what changed is that thinking and orchestration now run in the
+dsh agent loop. To go back to the built-in backend, switch *Execution backend*
+back — the two configurations do not overwrite each other.
 
-## 回看某一场对话
+## Reading a past conversation
 
-dsh 把每场会话存成 `$DSH_HOME/sessions/<cwd 转义>/<sessionId>/session*.jsonl.zstd`
-（zstd 压的 JSON Lines 事件流，比侧边栏那份全，含工具调用与轮次结束原因）。
-不用启 dsh 就能看：
+dsh stores every session as `$DSH_HOME/sessions/<escaped cwd>/<sessionId>/session*.jsonl.zstd`
+(a zstd-compressed JSON Lines event stream, more complete than what the panel
+keeps: it includes tool calls and end-of-turn reasons). You can read them
+without starting dsh:
 
 ```bash
-bin/sessions.sh                 # 列出所有会话
-bin/sessions.sh --mapus         # 只看 MAPUS 相关
-bin/sessions.sh <会话 id 前缀>    # 打印轨迹
-bin/sessions.sh <id> --reasoning  # 连思考过程
-bin/sessions.sh <id> --json       # 原始逐行事件
+bin/sessions.sh                 # list every session
+bin/sessions.sh --mapus         # MAPUS-related only
+bin/sessions.sh <id prefix>     # print a readable trace
+bin/sessions.sh <id> --reasoning  # include the reasoning stream
+bin/sessions.sh <id> --json       # raw one-event-per-line JSON
 ```
 
-文件是多帧拼接的 zstd，node 的 `zstdDecompressSync` 只解第一帧，
-`bin/sessions.mjs` 按魔数切帧逐帧解（需要 node ≥ 22.15，`sessions.sh` 会自己挑）。
+The file is a concatenation of zstd frames and node `zstdDecompressSync` only
+decodes the first one, so `bin/sessions.mjs` splits on the magic number and
+decodes frame by frame (needs node >= 22.15; `sessions.sh` picks a suitable one).
 
-`bin/start.sh` 的常用开关：`--port 7356`（换桥端口）、`--ui-port 3090`（换 dsh 自己的
-Web UI 端口）、`--profile headless`、`--reset`（先杀掉上一次再起）、`--open`（顺手开 UI）。
+Common `bin/start.sh` flags: `--port 7356` (bridge port), `--ui-port 3090` (the
+dsh Web UI port), `--profile headless`, `--reset` (kill the previous run first),
+`--open` (open the UI afterwards).
 
-### 模型
+### Models
 
-桥不自带模型：provider、地址、Key 全在 dsh 的 profile 里（`~/.dsh/profiles/<name>/`）。
-**用哪个模型**则由控制大屏 → 设置 → 智能体模型 → 「模型提供方 / 模型」两个下拉决定，
-不需要改 profile 文件。
+The bridge ships no model: provider, endpoint and key all live in the dsh
+profile (`~/.dsh/profiles/<name>/`). **Which model to use** is decided by the
+dashboard → Settings → Agent model → *Provider* / *Model* dropdowns, no profile
+editing needed.
 
-`error: 模型请求失败（检查 dsh 的 provider / Key）` 这个文案背后其实有两层原因，症状一模一样：
+The message `model request failed (check the dsh provider and key)` has two very
+different causes behind one symptom:
 
-| 真实原因 | 怎么确认 | 怎么修 |
+| Real cause | How to confirm | How to fix |
 | --- | --- | --- |
-| shell 里没有 Key | 启动时是否打印「已从 … 补上模型 Key」 | `bin/start.sh` 会自动从 `~/.dsh/.credentials.yaml` 的 `refs:` 补；也可手工 `export DEEPSEEK_API_KEY=sk-...` |
-| 模型没选上 | 日志里 `prompt variable "{{model}}" has no value` | 设置页点「读取可选模型」，选一个 provider + 模型 |
-| 选中的 provider 端点不通 | 日志里 `Connection error.` / `code: TRANSPORT` | 换一个 provider（有的自建网关只在特定网络可达） |
+| no key in the shell | did startup print `model key loaded from …`? | `bin/start.sh` fills it from `refs:` in `~/.dsh/.credentials.yaml`; you can also `export DEEPSEEK_API_KEY=sk-...` |
+| no model selected | log says `prompt variable "{{model}}" has no value` | on the settings page click *Load available models*, pick a provider + model |
+| the selected provider is unreachable | log says `Connection error.` / `code: TRANSPORT` | switch provider (some self-hosted gateways are only reachable on certain networks) |
 
-排查时用 `DSH_MAPUS_DEBUG=1 bin/start.sh` 起桥，它会把 harness 的原始会话事件打出来 ——
-上面三种原因只能这样区分，客户端拿到的永远只有那一句笼统文案。
+Start the bridge with `DSH_MAPUS_DEBUG=1 bin/start.sh` to see the raw harness
+session events — that is the only way to tell these three apart, because the
+client always gets the same generic message.
 
-想知道当前 profile 到底有哪些 provider / 模型可用：
+To see which providers and models the current profile actually offers:
 
 ```bash
 curl -s -H "X-MAPUS-Token: $(cat ~/.dsh/mapus-bridge/token)" \
   http://127.0.0.1:7355/v1/models
 ```
 
-## 安装到 profile（常驻，推荐）
+## Install into a profile (persistent, recommended)
 
-装好之后 `dsh --profile web` 就是带桥的，不需要 `--patch`，`bin/start.sh` 也会自动
-认出"已安装"，不再叠覆盖层（否则同一个桥会被注册两次、端口直接撞车）。
+Once installed, `dsh --profile web` already carries the bridge, no `--patch`
+needed, and `bin/start.sh` detects the installed state and stops stacking an
+overlay (two overlays would register the same bridge twice and collide on the
+port).
 
-**方式一：一条命令**（需要 `pnpm` 在 PATH 上；dsh 自带的那份在
-`~/.dsh/dsh-runtimes/dsh-primary-runtime/dependencies/pnpm`）
+**Option 1: one command** (needs `pnpm` on PATH; the copy bundled with dsh lives
+at `~/.dsh/dsh-runtimes/dsh-primary-runtime/dependencies/pnpm`)
 
 ```bash
 dsh plugin --profile web add /path/to/MAPUS/integrations/dsh-mapus
 ```
 
-**方式二：手工登记**（`dsh plugin add` 跑不起来时用，见下面「常见坑」）
+**Option 2: register by hand** (when `dsh plugin add` will not run, see the
+pitfall below)
 
-dsh 认两样东西：**profile 的 `node_modules` 里能解析到包名**，以及
-**`dsh.profile.bundles` 里列了这个包**（只放进 `dependencies` 是不会加载的，实测过）。
+dsh needs two things: **the package name must resolve inside the profile
+`node_modules`**, and **the package must be listed in `dsh.profile.bundles`**
+putting it only in `dependencies` does not load it — verified.
 
 ```bash
 cd ~/.dsh/profiles/web
@@ -119,19 +131,21 @@ ln -sfn /path/to/MAPUS/integrations/dsh-mapus node_modules/dsh-mapus
 }
 ```
 
-然后 `dsh --profile web`，横幅里出现 `dsh-mapus 已就绪` 就成了。
+Then run `dsh --profile web`; once the banner says `dsh-mapus ready`, it works.
 
-> **常见坑**：`dsh plugin add` 底层是 `pnpm add`，它会重装整个 profile 的依赖。
-> 只要 profile 里有**任何一个依赖指向的文件已经不在了**（比如某个本地 `.tgz` 被删了），
-> pnpm 就会以 `ENOENT` 整体失败，跟本插件无关。这时用方式二，别去动那个坏依赖。
+> **Pitfall**: `dsh plugin add` is `pnpm add` underneath and reinstalls every
+> profile dependency. If **any** dependency points at a file that no longer
+> exists (a deleted local `.tgz`, for example), pnpm fails the whole run with
+> `ENOENT` — nothing to do with this plugin. Use option 2 and leave the broken
+> dependency alone.
 
-**临时用（不动 profile）**：手写覆盖层。
+**Temporary use (leave the profile untouched)**: write an overlay by hand.
 
 ```yaml
 # /tmp/mapus.yml
 - insert:
     - id: mapus-bridge
-      name: '/绝对路径/MAPUS/integrations/dsh-mapus/index.js'
+      name: '/absolute/path/MAPUS/integrations/dsh-mapus/index.js'
       config:
         port: 7355
 ```
@@ -140,7 +154,8 @@ ln -sfn /path/to/MAPUS/integrations/dsh-mapus node_modules/dsh-mapus
 dsh --profile web --patch /tmp/mapus.yml
 ```
 
-已经装进 profile 时想临时改桥端口，覆盖层要写成**按 id 覆盖**而不是再 insert：
+To change the bridge port temporarily while installed, the overlay must
+**override by id**, not insert again:
 
 ```yaml
 - id: mapus-bridge
@@ -148,214 +163,239 @@ dsh --profile web --patch /tmp/mapus.yml
     port: 7356
 ```
 
-> `--patch` 要放在 `--profile` 之后、app 自己的参数之前：
-> `dsh --profile web --patch x.yml --no-open --port 7398`。
-> 写成 `dsh --profile web --no-open --patch x.yml` 会报 `unknown option`。
+> `--patch` goes after `--profile` and before the app's own flags:
+> `dsh --profile web --patch x.yml --no-open --port 7398`.
+> Writing `dsh --profile web --no-open --patch x.yml` fails with `unknown option`.
 
-插件里的裸导入（`@deepseek-ai/dsh-tools`）从插件目录向上找 `node_modules`。
-本地开发时如果没有，`node_modules/@deepseek-ai` 软链到 profile 的那份即可
-（`bin/start.sh` 会自动做这一步）：
+Bare imports inside the plugin (`@deepseek-ai/dsh-tools`) resolve upwards from
+the plugin directory. During local development, symlink the profile copy if it is
+missing (`bin/start.sh` does this automatically):
 
 ```bash
 mkdir -p node_modules
 ln -sfn ~/.dsh/profiles/node_modules/@deepseek-ai node_modules/@deepseek-ai
 ```
 
-启动成功会打印：
+A successful start prints:
 
 ```
-  ┌─ dsh-mapus 已就绪 ─────────────────────────────────────────
-  │ 地址   http://127.0.0.1:7355
-  │ Token  8ccb0a7df2e0cd6bc5909feb43eb1146   (沿用已保存, ~/.dsh/mapus-bridge/token)
-  │ 后端   provider=(profile 默认) model=(profile 默认)
-  │ 下一步 MAPUS 控制大屏 → 设置 → 智能体模型 → 执行后端选「DeepSeek Harness」
-  └────────────────────────────────────────────────────────────
+[dsh-mapus] ready  http://127.0.0.1:7355  token <token>  (reused, ~/.dsh/mapus-bridge/token)
+[dsh-mapus] provider profile default  model profile default  ·  paste the url and token into MAPUS → Settings → Agent model
 ```
 
-把这行地址和 Token 填到 **MAPUS 控制大屏 → 设置 → 智能体模型 → 执行后端 =
-DeepSeek Harness**，点「测试连接」应返回工具数量。
+Put that url and token into **MAPUS dashboard → Settings → Agent model →
+Execution backend = DeepSeek Harness**; *Test connection* should answer with the
+tool count.
 
-## 配置
+## Configuration
 
-patch 行里的 `config` 全部可选：
+Every key in the patch row's `config` is optional:
 
-| 字段 | 默认 | 说明 |
+| Key | Default | Meaning |
 | --- | --- | --- |
-| `host` | `127.0.0.1` | 只绑回环；`allowRemote` 才允许其它地址 |
-| `port` | `7355` | 桥自己的 HTTP 端口；`0` 表示由系统分配 |
-| `token` | 空 | 空＝首次生成并写入 `$DSH_HOME/mapus-bridge/token`（0600） |
-| `provider` / `model` | 空 | 空＝跟随 profile 默认；非空则逐轮固化到会话 |
-| `reasoningEffort` | 空 | 适配器支持时生效 |
-| `sessionPrefix` | `mapus` | DSH 会话 id 前缀，便于在会话列表里认出来 |
-| `maxSteps` | `40` | 仅用于侧边栏步数计显示 |
-| `rpcTimeoutMs` | `120000` | 单次浏览器工具调用上限 |
-| `allowRemote` | `false` | 允许绑定非回环地址（不建议） |
-| `systemPrompt` | 空 | 追加到 MAPUS 人格段之后 |
-| `enableTools` | `true` | 关掉就只当桥用，不注册 `mapus_*` 工具 |
-| `enableHostTools` | `true` | 给 agent 挂 dsh 原生的 `bash` / `read` / `write` / `glob` / `grep` / `job_*` |
-| `approvalPolicy` | `never` | 沙箱升级请求直接拒（`ask` 在无 Web UI 时会挂死整轮） |
-| `sandboxMode` | `auto` | 宿主没有可用沙箱后端时给本会话钉 `danger-full-access`；`inherit` 则完全不碰 |
+| `host` | `127.0.0.1` | loopback only; other addresses need `allowRemote` |
+| `port` | `7355` | the bridge HTTP port; `0` lets the system pick one |
+| `token` | empty | empty means generate on first start and write `$DSH_HOME/mapus-bridge/token` (0600) |
+| `provider` / `model` | empty | empty follows the profile default; otherwise pinned per turn |
+| `reasoningEffort` | empty | applied when the adapter supports it |
+| `sessionPrefix` | `mapus` | DSH session id prefix, so they are recognisable in the session list |
+| `maxSteps` | `40` | only drives the step counter in the side panel |
+| `rpcTimeoutMs` | `120000` | timeout for a single browser tool call |
+| `allowRemote` | `false` | allow a non-loopback bind (not recommended) |
+| `systemPrompt` | empty | appended after the MAPUS persona block |
+| `enableTools` | `true` | turn off to use the bridge only, without registering `mapus_*` |
+| `enableHostTools` | `true` | mount the native dsh `bash` / `read` / `write` / `glob` / `grep` / `job_*` tools on the agent |
+| `approvalPolicy` | `never` | reject sandbox escalation outright (`ask` hangs the turn when no Web UI is attached) |
+| `sandboxMode` | `auto` | pin this session to `danger-full-access` when the host has no usable sandbox backend; `inherit` leaves it alone |
 
-## 协议
+## Protocol
 
-普通 HTTP + NDJSON，不用 WebSocket —— MV3 的 service worker 会在空闲时被挂起，
-长连接反而要写重连；一轮一个 POST 更符合浏览器这边的心智模型。
+Plain HTTP plus NDJSON, no WebSocket: an MV3 service worker is suspended when
+idle, so a long-lived connection would need reconnect logic, while one POST per
+turn matches how the browser side already thinks.
 
-| 路由 | 说明 |
+| Route | Meaning |
 | --- | --- |
-| `GET /v1/health` | 健康检查，**不需要 token**（侧边栏靠它区分"没起"和"token 错"） |
-| `GET /v1/catalog` | 已声明的工具面 |
-| `POST /v1/turn` | 一轮对话，响应体是 NDJSON 事件流 |
-| `POST /v1/rpc` | 浏览器侧把工具结果送回（按 rpc id 关联） |
-| `POST /v1/cancel` | 停掉某一轮 |
-| `POST /v1/shutdown` | 关桥（测试/排障用） |
+| `GET /v1/health` | health check, **no token required** (the panel uses it to tell "not running" from "wrong token") |
+| `GET /v1/catalog` | the declared tool surface |
+| `POST /v1/turn` | one turn; the response body is an NDJSON event stream |
+| `POST /v1/rpc` | the browser side sends a tool result back (matched by rpc id) |
+| `POST /v1/cancel` | stop a turn |
+| `POST /v1/shutdown` | close the bridge (tests and debugging) |
 
-一轮的事件顺序：
+Event order within a turn:
 
 ```
 hello → start → step → (reasoning) → rpc ⇄ POST /v1/rpc → delta… → done
 ```
 
-`delta…` 是真的一小块一小块来的，来源是 **`agent/assistant-stream`**：dsh 把
-流式增量发在这条 **process-local、按 agent 作用域派发、且不写会话日志** 的通道上。
-只听 `session/event` 的话，模型说完之前面板会一直静默，然后把整段正文当成一条
-`delta` 一次性吐出来 —— 看起来就是"没有流式"。`assistant/message` 落定时只补
-「流式还没发出去的那一截」，两条路不会重复；推理（reasoning）只要流过就不再补，
-因为 dsh 会在正文 attempt 前再发一次 `start`，那时计数已清零，只按计数判断会把
-整段思考重发一遍。
+`delta…` really does arrive in small pieces, from **`agent/assistant-stream`**:
+dsh publishes streaming increments on a channel that is **process-local, scoped
+per agent, and never written to the session log**. Listening only to
+`session/event` leaves the panel silent until the model finishes and then dumps
+the whole answer as a single `delta` — which looks exactly like "no streaming".
+When `assistant/message` settles, only the part **not yet streamed** is filled
+in, so the two paths never duplicate; reasoning is never re-sent once streamed,
+because dsh sends another `start` before the answer attempt, which zeroes the
+counter, and a counter-only check would resend the entire reasoning block.
 
-工具卡**不由桥发**：工具是扩展收到 `rpc` 之后自己执行、自己发的 `tool` /
-`tool_result`，这样卡片上的耗时是真实的，也不会出现重复卡片。
+Tool cards are **not emitted by the bridge**: the extension executes the tool
+after receiving the `rpc` and emits its own `tool` / `tool_result`, so the
+timings on the cards are real and no card is duplicated.
 
-`done` 的 `answer` 是这一轮的可见正文，`usage` 是各步 token 累加，
-`steps` / `budget` 对应侧边栏的步数计。
+`done` carries `answer` (the visible text of the turn), `usage` (tokens summed
+across steps) and `steps` / `budget` for the panel's step counter.
 
-## 工具面
+## Tool surface
 
-### dsh 原生工具（首选）
+### Native dsh tools (preferred)
 
-每个 agent 装配时，本插件会向 harness 的 preset registry 注册一条自己的 preset
-（`mapus-host`，`order: 900`）并挂到该 agent 的作用域上，于是模型直接拥有：
+When an agent is assembled, the plugin registers its own preset with the harness
+preset registry (`mapus-host`, `order: 900`) and mounts it on that agent's
+scope, so the model directly gets:
 
-| 工具 | 作用 |
+| Tool | Purpose |
 | --- | --- |
-| `bash` / `pwsh` | 跑命令（macOS/Linux / Windows 各取其一） |
-| `read` / `write` / `edit` / `read_image` | 读写文件 |
-| `glob` / `grep` | 找文件、搜内容 |
-| `job_list` / `job_output` / `job_kill` | 后台任务 |
+| `bash` / `pwsh` | run commands (macOS/Linux / Windows) |
+| `read` / `write` / `edit` / `read_image` | read and write files |
+| `glob` / `grep` | find files, search contents |
+| `job_list` / `job_output` / `job_kill` | background jobs |
 
-为什么必须自己注册：`dsh-web-app` 这层 bundle 在 host plane 把 `tool-bash` /
-`tool-fs` / `tool-fs-search` / `tool-jobs` 全 **disable** 了 —— 原文是「base 留给
-TUI，Web 表面让每个会话自己挂 preset」。Web UI 新建会话会挂 `standard`，
-而桥是用 `ctx.agents.create()` 直接建 agent、不经过任何 preset，所以不补这一步
-就只剩一个 `working_directory`，碰不到磁盘也跑不了命令。
+Why the plugin has to register them itself: the `dsh-web-app` bundle **disables**
+`tool-bash` / `tool-fs` / `tool-fs-search` / `tool-jobs` on the host plane — in
+its own words, "base keeps them for the TUI, the Web surface lets every session
+mount its own preset". A new Web UI session mounts `standard`, but the bridge
+creates agents directly through `ctx.agents.create()` without going through any
+preset, so without this step the model would only have `working_directory` and
+could neither touch the disk nor run a command.
 
-窄是有意的：persona / compaction / plan-mode / subagent / web 都没挂 ——
-它们要么覆盖面板自己负责的界面，要么需要这个桥没有的审批 UI。
+The narrowness is deliberate: persona, compaction, plan-mode, subagent and web
+are not mounted — they either override UI the panel owns or need an approval UI
+this bridge does not have.
 
-**沙箱**：命令受会话的 sandbox mode 约束，默认走 harness 的 `workspace-write`
-（写入范围＝会话 cwd）。但 harness 在 macOS 上**从不预检**它的 seatbelt 后端
-（`chainVerdict()` 对唯一候选直接返回、不 probe），失败要等到命令真的 spawn 才发现；
-而 macOS 27 起 `sandbox-exec` 已经无法 apply 任何带 `deny` 规则的 profile：
+**Sandbox**: commands are constrained by the session sandbox mode, defaulting to
+the harness `workspace-write` (writes limited to the session cwd). But on macOS
+the harness **never pre-checks** its seatbelt backend (`chainVerdict()` returns
+the only candidate without probing), so failure only shows up when a command
+actually spawns; and since macOS 27, `sandbox-exec` can no longer apply any
+profile that contains a `deny` rule:
 
 ```
 $ /usr/bin/sandbox-exec -p '(version 1)(allow default)(deny file-write*)' -- true
 sandbox-exec: sandbox_apply: Operation not permitted   # exit 71
-$ /usr/bin/sandbox-exec -p '(version 1)(allow default)' -- true   # 这条还能过
+$ /usr/bin/sandbox-exec -p '(version 1)(allow default)' -- true   # this one still works
 ```
 
-所以本插件在装配时自己探一次内核（同一个 profile 形状），探不通就给**这条会话**
-钉 `sandbox/mode = danger-full-access` 并打一行警告 —— 这只影响 MAPUS 会话，
-不碰你在 dsh Web UI 里开的会话，也不改 `DSH_PERMISSION_MODE`。探测结果是宿主级
-的，只算一次。配置项 `sandboxMode`：`auto`（默认）/ `inherit`（完全不碰）/
-`read-only` / `workspace-write` / `danger-full-access`（显式钉某个档）。
+So the plugin probes the kernel once at assembly time (with the same profile
+shape) and, when the probe fails, pins **that session** to
+`sandbox/mode = danger-full-access` and logs one warning. This only affects MAPUS
+sessions: it does not touch sessions you open in the dsh Web UI and does not
+change `DSH_PERMISSION_MODE`. The probe result is host-wide and computed once.
+`sandboxMode` accepts `auto` (default), `inherit` (never touch),
+`read-only`, `workspace-write` and `danger-full-access`.
 
-**审批**：`approvalPolicy` 默认 `never`，会在会话开头写一条 `approval/policy`。
-桥接会话没有 Web UI 连着，`ask` 一旦触发（模型请求放宽沙箱）就永远不会有人回答，
-整轮会一直挂着直到 HTTP body 超时。默认直接拒，模型会收到明确原因并换路径。
+**Approval**: `approvalPolicy` defaults to `never` and writes an
+`approval/policy` event at the start of the session. A bridged session has no Web
+UI attached, so once `ask` fires (the model asks for a relaxed sandbox) nobody
+will ever answer and the turn hangs until the HTTP body times out. Rejecting by
+default gives the model a clear reason and lets it pick another path.
 
-### MAPUS 扩展工具
+### MAPUS extension tools
 
-23 个扩展工具 + 目录工具 + 一个万能转发（`TOOLS` 数组共 24 项）：
+23 extension tools plus the catalog tool plus one universal forwarder (24 entries
+in the `TOOLS` array):
 
-- 现场与扫描：`mapus_page_context`、`mapus_scan_findings`、`mapus_fingerprints`、
-  `mapus_anti_state`、`mapus_hook_state`、`mapus_collect_endpoints`、`mapus_run_scan`
-- 页面读取：`mapus_page_text`、`mapus_dom_query`、`mapus_page_storage`
-- 浏览器控制：`mapus_browser_snapshot` / `_click` / `_type` / `_key` / `_scroll` /
-  `_navigate` / `_tabs` / `_screenshot` / `_eval` / `_network` / `_console`
-- 探测：`mapus_probe_http`
-- 发现：`mapus_catalog`（列全部能力）、`mapus_tool`（`{name, args}` 转发到未声明的工具）
+- context and scanning: `mapus_page_context`, `mapus_scan_findings`,
+  `mapus_fingerprints`, `mapus_anti_state`, `mapus_hook_state`,
+  `mapus_collect_endpoints`, `mapus_run_scan`
+- page reading: `mapus_page_text`, `mapus_dom_query`, `mapus_page_storage`
+- browser control: `mapus_browser_snapshot` / `_click` / `_type` / `_key` /
+  `_scroll` / `_navigate` / `_tabs` / `_screenshot` / `_eval` / `_network` /
+  `_console`
+- probing: `mapus_probe_http`
+- discovery: `mapus_catalog` (lists every capability), `mapus_tool` (forwards
+  `{name, args}` to an undeclared tool)
 
-工具注册在**每个 agent 的作用域里**（`create({ setup })`），不会污染同一
-profile 里 Web UI 的其它会话：别的会话看不到这些工具。
+Tools are registered **inside each agent's scope** (`create({ setup })`), so they
+never leak into other sessions of the same profile's Web UI: those sessions cannot
+see them.
 
-名字统一加 `mapus_` 前缀，因为 profile 可能同时挂着 DSH 自己的 `browser-use`，
-重名会让注册直接失败。
+The `mapus_` prefix is uniform because a profile may also load DSH's own
+`browser-use`; duplicate names would make registration fail outright.
 
-同时注册一个运行时 skill `mapus-browser`，模型按需加载，常驻上下文零成本。
+A runtime skill named `mapus-browser` is registered as well: the model loads it on
+demand, so it costs nothing in the resident context.
 
-## 安全边界
+## Security boundary
 
-- 只绑 `127.0.0.1`；非回环地址必须显式 `allowRemote: true`。
-- Token 必填（除非你显式配空）。`/v1/health` 之外的接口一律校验，错 token 401。
-- 桥的能力等于"读页面 + 在本机跑命令"，所以 Token 等同于本机凭据：
-  不要写进公开配置，不要转发到局域网。
-- 本机命令走 dsh 原生 `bash` / `pwsh`，权限等于当前登录用户；桥只把浏览器
-  能力交给 agent，不再提供任何本机执行中转。
-- 工具本身仍受 MAPUS 的开关约束：总开关关掉、Hook 未启用时，对应工具都会
-  如实返回错误，而不是绕过。
+- Binds `127.0.0.1` only; any other address requires an explicit `allowRemote: true`.
+- A token is mandatory (unless you explicitly configure an empty one). Every
+  route except `/v1/health` validates it and answers 401 on a mismatch.
+- The bridge's capability equals "read pages + run local commands", so the token
+  is equivalent to local credentials: never put it in public configuration and
+  never forward it to a LAN.
+- Local commands go through the native dsh `bash` / `pwsh` and run with the
+  current user's permissions; the bridge only hands browser capabilities to the
+  agent and offers no additional local execution relay.
+- The tools still obey the MAPUS switches: with the master switch off or the
+  hooks disabled, the corresponding tools return an honest error instead of
+  bypassing the switch.
 
-## 排障
+## Troubleshooting
 
-| 症状 | 原因 / 处理 |
+| Symptom | Cause / fix |
 | --- | --- |
-| `error: 模型请求失败（检查 dsh 的 provider / Key）` | 起桥的 shell 没有模型 Key，或 profile 的 provider 连不上。先把 Key `export` 出来再 `bin/start.sh --reset` |
-| `listen EADDRINUSE 127.0.0.1:3080` | 上一次的 dsh 还活着。`/v1/shutdown` **只关桥、不结束 dsh 进程**，所以它仍占着 Web UI 端口。用 `bin/start.sh --reset`，或 `kill $(cat ~/.dsh/mapus-bridge/bridge.pid)` |
-| `ERR_DLOPEN_FAILED` / `Cannot find module pty.node` | node 和 dsh CLI 不同源（原生模块按 ABI 编的）。`start.sh` 会自动选 dsh 同目录的 node；手工起时用 `~/.nvm/versions/node/<和 dsh 同版本的>/bin/node` |
-| 设置页测试连接报「Token 不对」 | 桥在跑但 token 不匹配。`cat ~/.dsh/mapus-bridge/token` 重新抄一份；`/v1/health` 不需要 token，能通说明只是 token 问题 |
-| 测试连接报「连不上」 | 桥没起，或端口不是 7355（看启动横幅） |
-| 改了端口但面板还连旧的 | 面板里的「桥地址」是独立配置，要一起改 |
-| 已装进 profile 后用 `--port` 没生效 | 已安装时端口由 profile 的 bundle 配置决定；覆盖层要写成「按 id 覆盖」而不是再 insert。`bin/start.sh --port` 会自动写对 |
-| `dsh plugin add` 报 `ENOENT ... .tgz` | profile 里别的依赖指向的文件已不存在，pnpm 整体失败，与本插件无关。改用「手工登记」 |
-| 模型只有 28 个工具、没有 `bash` / `write` | preset 没挂上。看启动日志有没有 `[dsh-mapus] 已给 agent 挂上 dsh 原生工具`；没有就往上找 `注册本机工具 preset 失败` / `挂载 dsh 自带工具超时`，原因会写在后面。`enableHostTools` 被关掉也会这样 |
-| `bash` 报 `sandbox mode "workspace-write" ... no sandbox backend is usable` | 这台机器上没有能 enforce 的沙箱后端（macOS 27 的 `sandbox-exec` 已拒绝 `deny` 类 profile）。`sandboxMode: auto` 会自动给会话钉 `danger-full-access` 并打警告；若日志里没有那行警告，说明探测被 `sandboxMode` 的显式值覆盖了 |
-| 一轮对话卡住不动，日志最后是 `approval/asked` | 模型请求放宽沙箱，而 `approvalPolicy: ask` 下没有任何客户端能回答。改回默认 `never`（会在会话开头写 `approval/policy`，升级请求立即被拒） |
-| 面板报 `session "mapus-…" already exists` | 两个注册表打架：`ctx.agents.get()` 没有，但 `create()` 用的 session store 里有（面板点「重试」撞上上一轮还没收尾，或热重载后新旧两个 pool 同时打开同一会话）。现在的处理：写锁退避重试（150ms 起、翻倍、5 次≈4s）→ 认领已存在的 agent → 再 resume；全都失败才报错，且错误里带会话 id 与当前 cwd。日志里能搜到 `会话已存在于 harness，改为复用而不是报错` |
-| 报 `恢复会话失败：… is already owned by an active write handle` | 写句柄被另一个**还活着**的回合占着（进程死掉的话内核会放 flock，不会是这个）。等它收尾再发；这条错误现在只在退避 4 秒后仍被占时才出现，不会退化成 `already exists` |
+| `model request failed (check the dsh provider and key)` | the shell that started the bridge has no model key, or the profile provider is unreachable. Export the key first, then `bin/start.sh --reset` |
+| `listen EADDRINUSE 127.0.0.1:3080` | the previous dsh is still alive. `/v1/shutdown` **only closes the bridge, it does not end the dsh process**, so it still holds the Web UI port. Use `bin/start.sh --reset` or `kill $(cat ~/.dsh/mapus-bridge/bridge.pid)` |
+| `ERR_DLOPEN_FAILED` / `Cannot find module pty.node` | node and the dsh CLI come from different builds (native modules are ABI-bound). `start.sh` picks the node next to dsh automatically; starting by hand needs `~/.nvm/versions/node/<same as dsh>/bin/node` |
+| Test connection says "invalid token" | the bridge runs but the token does not match. Re-copy `cat ~/.dsh/mapus-bridge/token`; `/v1/health` needs no token, so a successful health check means only the token is wrong |
+| Test connection says "cannot connect" | the bridge is not running, or the port is not 7355 (check the startup banner) |
+| changed the port but the panel still uses the old one | *Bridge URL* in the panel is a separate setting and has to be changed too |
+| `--port` has no effect once installed | when installed, the port comes from the profile bundle config; the overlay has to **override by id**, not insert again. `bin/start.sh --port` writes the right thing |
+| `dsh plugin add` fails with `ENOENT ... .tgz` | another profile dependency points at a missing file and pnpm fails as a whole; unrelated to this plugin. Use *register by hand* |
+| the model has only 28 tools and no `bash` / `write` | the preset did not mount. Check the startup log for `mounted native dsh tools`; if absent, look above for `failed to register the local-tool preset` / `timed out mounting the dsh native tools`, the reason follows. `enableHostTools: false` also produces this |
+| `bash` reports `sandbox mode "workspace-write" ... no sandbox backend is usable` | the machine has no enforceable sandbox backend (macOS 27 `sandbox-exec` refuses `deny` profiles). `sandboxMode: auto` pins the session to `danger-full-access` and warns; if that warning is missing, an explicit `sandboxMode` overrode the probe |
+| a turn hangs, the last log line is `approval/asked` | the model asked for a relaxed sandbox and `approvalPolicy: ask` has no client to answer. Go back to the default `never` (it writes `approval/policy` at session start and rejects escalation immediately) |
+| the panel reports `session "mapus-…" already exists` | two registries disagree: `ctx.agents.get()` has nothing, but the session store used by `create()` does (a retry in the panel landing on a turn that has not finished, or two pools opening the same session after a hot reload). Current handling: back off and retry the write lock (150ms, doubling, 5 tries ≈ 4s) → adopt the existing agent → resume; only if all of that fails does it error, with the session id and current cwd included. The log line is `session already exists in the harness, reusing it instead of failing` |
+| `failed to resume the session: … is already owned by an active write handle` | the write handle is held by another **live** turn (a dead process would have released the flock). Wait for it to finish; this error now only appears after the 4 second backoff still finds it held, and never degrades into `already exists` |
 
-## 开发
+## Development
 
 ```bash
-node --test tests/*.test.js   # 92 个用例：配置、事件翻译、实时流帧、会话池、工具预设、沙箱探测、HTTP 桥、真实 defineTool 校验
+node --test tests/*.test.js   # 92 cases: config, event projection, live stream frames, session pool, tool preset, sandbox probe, HTTP bridge, real defineTool validation
 ```
 
-（`node --test tests/` 在部分 node 版本上会把目录当文件解析并报 `Cannot find
-module`，用通配符。）
+(`node --test tests/` treats the directory as a file on some node versions and
+fails with `Cannot find module`; use the glob.)
 
-`tests/tools-harness.test.js` 会 import 真实的 `@deepseek-ai/dsh-tools` 把每个
-工具定义过一遍注册器（schema 编译 + 参数校验）；解析不到时自动跳过。
+`tests/tools-harness.test.js` imports the real `@deepseek-ai/dsh-tools` and runs
+every tool definition through the registrar (schema compilation plus argument
+validation); it skips itself when the package cannot be resolved.
 
-## 已验证 / 未验证
+## Verified / not verified
 
-已在本机真实 dsh（`0.2.1-rc.2`，node v26.2.0）上跑过：
+Verified on a real local dsh (`0.2.1-rc.2`, node v26.2.0):
 
-- `--profile headless`，插件正常加载、桥正常启动、任务正常完成；
-- `--profile web`，桥在 127.0.0.1:7355 长期存活，`/v1/health`、`/v1/catalog` 正常；
-- `bin/start.sh` 全流程：起桥 → 健康检查 200 → 重复启动被拦下（提示 `--reset`）→
-  `--reset` 杀掉旧 pid 后重新起得来；
-- 事件投影端到端形态：`hello → start → step → done`；
-- **dsh 原生工具链端到端**：会话日志里出现 `tool/call name=bash`（
-  `echo HOST_BASH_OK` 返回正文正确）、`write` 真的在当前目录落下
-  `written-by-dsh`、`read` 读回一致；`/v1/health` 之外只有 `mapus_*` 时那种
-  「28 个工具、没有 bash」的现象消失；
-- **隔离重建**：被 v0→v1 迁移链拒绝的会话会被移到
-  `$DSH_HOME/mapus-bridge/quarantine/<sessionId>-<时间戳>`（**不能**留在
-  `./sessions` 树里 —— dsh-workspace 启动时会扫那棵树，头部 id 推不出来的目录
-  会让 `workspace` 服务直接挂掉，连带 `session-controller` / `schedule` /
-  `ui-deliverables` 全部 pending）。
+- `--profile headless`: the plugin loads, the bridge starts, a task completes;
+- `--profile web`: the bridge lives at 127.0.0.1:7355, `/v1/health` and
+  `/v1/catalog` answer correctly;
+- the whole `bin/start.sh` flow: start → health check 200 → a second start is
+  refused (pointing at `--reset`) → `--reset` kills the old pid and starts again;
+- end-to-end event projection shape: `hello → start → step → done`;
+- **the native dsh tool chain end to end**: the session log shows
+  `tool/call name=bash` (`echo HOST_BASH_OK` returns the right body), `write`
+  really drops `written-by-dsh` in the current directory and `read` returns the
+  same content; the "28 tools, no bash" symptom disappears;
+- **quarantine and rebuild**: a session rejected by the v0→v1 migration is moved
+  to `$DSH_HOME/mapus-bridge/quarantine/<sessionId>-<timestamp>` (it **must not**
+  stay inside the `./sessions` tree — dsh-workspace scans that tree at startup and
+  a directory whose header id cannot be derived takes the `workspace` service down,
+  leaving `session-controller` / `schedule` / `ui-deliverables` all pending).
 
-**未**在本机验证的：`workspace-write` 沙箱下 `bash` 的真实执行 —— 这台 macOS 27
-上 `sandbox-exec` 已经 apply 不了受限 profile（见上文「沙箱」），所以本机走的是
-`auto` 降级后的 `danger-full-access`。降级路径本身已按真机验证：
-启动日志 `这台机器上没有可用的沙箱后端，本机命令按 danger-full-access 运行`，
-探针 `whoami` 返回 `your-user`（默认 `workspace-write` 时同一条命令是被直接拒绝的）。
+**Not** verified locally: `bash` actually running under the `workspace-write`
+sandbox — on this macOS 27 machine `sandbox-exec` cannot apply a restricted
+profile any more (see "Sandbox" above), so the local path is the `auto` fallback
+`danger-full-access`. The fallback path itself was verified on the real machine:
+the startup log says `no sandbox backend is available on this machine, so local
+commands run as danger-full-access`, and a `whoami` probe returns `your-user`
+(the same command is refused outright under the default `workspace-write`).

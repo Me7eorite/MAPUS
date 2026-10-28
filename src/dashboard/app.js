@@ -1,4 +1,4 @@
-import { $, $$ } from './lib.js';
+import { $, $$, t, initI18n, toggleLanguage } from './lib.js';
 import { state, stats, refreshAll, refreshTasks, refreshFindings, refreshProfiles, refreshAgent, refreshSettings, onChange, setGate } from './store.js';
 import { renderOverview } from './views/overview.js';
 import { renderTasks, renderTaskList, appendLog } from './views/tasks.js';
@@ -122,6 +122,11 @@ async function cycleTheme() {
 }
 
 export async function mountApp() {
+  await initI18n();
+  document.title = t('MAPUS 控制面板');
+  const langButton = document.getElementById('btnLang');
+  if (langButton) langButton.addEventListener('click', toggleLanguage);
+
   const storedTheme = await new Promise(resolve => {
     try {
       chrome.storage.local.get(['mapus_theme'], data => resolve((data && data['mapus_theme']) || 'auto'));
@@ -133,7 +138,7 @@ export async function mountApp() {
   document.getElementById('btnTheme').addEventListener('click', cycleTheme);
 
   const nav = document.getElementById('tabs');
-  nav.innerHTML = TABS.map(tab => `<button class="tab${tab.id === state.tab ? ' active' : ''}" data-tab="${tab.id}" role="tab">${tab.label}</button>`).join('');
+  nav.innerHTML = TABS.map(tab => `<button class="tab${tab.id === state.tab ? ' active' : ''}" data-tab="${tab.id}" role="tab">${t(tab.label)}</button>`).join('');
   nav.addEventListener('click', event => {
     const button = event.target.closest('[data-tab]');
     if (button) switchTab(button.dataset.tab);

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MAPUS",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "隐私防护 · 敏感数据检查 · 技术栈识别 · 脚本增强 · 能读懂当前网页的 AI 助手，所有规则都可自定义",
   "minimum_chrome_version": "120",
   "icons": {

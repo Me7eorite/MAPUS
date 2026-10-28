@@ -44,20 +44,20 @@ export class Turn {
   }
 
   async rpc(call, args, signal) {
-    if (this.ended) throw new Error('本轮对话已结束，工具无法执行')
-    if (signal && signal.aborted) throw new Error('工具调用已取消')
+    if (this.ended) throw new Error('this turn has ended, the tool cannot run')
+    if (signal && signal.aborted) throw new Error('tool call cancelled')
     counter += 1
     const id = `rpc${counter}`
     const timeoutMs = this.rpcTimeoutMs
     return await new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id)
-        reject(new Error(`浏览器执行超时（${Math.round(timeoutMs / 1000)}s）：${call}`))
+        reject(new Error(`browser execution timed out after ${Math.round(timeoutMs / 1000)}s: ${call}`))
       }, timeoutMs)
       const onAbort = () => {
         clearTimeout(timer)
         this.pending.delete(id)
-        reject(new Error('工具调用已取消'))
+        reject(new Error('tool call cancelled'))
       }
       if (signal && typeof signal.addEventListener === 'function') signal.addEventListener('abort', onAbort, { once: true })
       this.pending.set(id, {
@@ -66,7 +66,7 @@ export class Turn {
           clearTimeout(timer)
           if (signal && typeof signal.removeEventListener === 'function') signal.removeEventListener('abort', onAbort)
           this.pending.delete(id)
-          if (payload && payload.ok === false) reject(new Error(payload.error || `${call} 执行失败`))
+          if (payload && payload.ok === false) reject(new Error(payload.error || `${call} failed`))
           else resolve(payload ? payload.result : null)
         },
         fail: message => {
@@ -91,7 +91,7 @@ export class Turn {
     this.ended = true
     this.cancelled = true
     this.reason = reason
-    for (const entry of this.pending.values()) entry.fail('浏览器已断开，工具调用被取消')
+    for (const entry of this.pending.values()) entry.fail('the browser disconnected, the tool call was cancelled')
     this.pending.clear()
     this.#resolveEnd({ cancelled: true, reason })
   }
@@ -100,7 +100,7 @@ export class Turn {
     if (this.ended) return
     this.ended = true
     this.reason = reason
-    for (const entry of this.pending.values()) entry.fail('本轮已结束，未完成的工具调用被取消')
+    for (const entry of this.pending.values()) entry.fail('the turn ended, pending tool calls were cancelled')
     this.pending.clear()
     this.#resolveEnd({ cancelled: false, reason })
   }

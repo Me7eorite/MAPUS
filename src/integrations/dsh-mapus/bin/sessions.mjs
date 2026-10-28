@@ -9,7 +9,7 @@ const DSH_HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const SESSIONS_DIR = path.join(DSH_HOME, 'sessions')
 
 if (typeof zlib.zstdDecompressSync !== 'function') {
-  console.error(`当前 node ${process.version} 不支持 zstd，需要 >= 22.15。`)
+  console.error(`node ${process.version} has no zstd support, need >= 22.15`)
   process.exit(1)
 }
 
@@ -92,24 +92,24 @@ const textOfContent = content => (Array.isArray(content) ? content : [])
   .map(part => part.text)
   .join('')
 
-const clip = (text, limit = 1200) => (text.length > limit ? `${text.slice(0, limit)}…[共 ${text.length} 字符]` : text)
+const clip = (text, limit = 1200) => (text.length > limit ? `${text.slice(0, limit)}…[${text.length} chars]` : text)
 
 const isRuntimeContext = text => text.startsWith('Current runtime context')
 
 function printTrail(id, { reasoning = false } = {}) {
   const hit = listSessions().find(item => item.id === id) || listSessions().find(item => item.id.startsWith(id))
   if (!hit) {
-    console.error(`找不到会话：${id}`)
+    console.error(`session not found: ${id}`)
     const near = listSessions().filter(item => item.id.includes(id)).slice(0, 5)
-    if (near.length) console.error('相近的有：\n' + near.map(item => '  ' + item.id).join('\n'))
+    if (near.length) console.error('close matches:\n' + near.map(item => '  ' + item.id).join('\n'))
     process.exit(1)
   }
   const events = readEvents(hit.dir)
   const head = events.find(event => event.type === 'session') || {}
-  console.log(`会话    ${hit.id}`)
-  console.log(`cwd     ${head.cwd || '(未知)'}`)
-  console.log(`桶      ${hit.bucket}`)
-  console.log(`事件数  ${events.length}`)
+  console.log(`session  ${hit.id}`)
+  console.log(`cwd      ${head.cwd || '(unknown)'}`)
+  console.log(`bucket   ${hit.bucket}`)
+  console.log(`events   ${events.length}`)
   console.log('─'.repeat(72))
 
   for (const event of events) {
@@ -119,10 +119,10 @@ function printTrail(id, { reasoning = false } = {}) {
         const text = textOfContent(data.content)
         if (!text) break
         if (isRuntimeContext(text)) {
-          console.log('[运行时上下文] （每轮注入的沙箱/文件策略快照，省略）')
+          console.log('[runtime context] (sandbox/file policy snapshot injected each turn, omitted)')
           break
         }
-        console.log(`\n[用户] ${clip(text)}`)
+        console.log(`\n[user] ${clip(text)}`)
         break
       }
       case 'assistant/message': {
@@ -131,7 +131,7 @@ function printTrail(id, { reasoning = false } = {}) {
         if (!text) break
         const source = message.source || {}
         const tag = source.model ? ` · ${source.provider || '?'}/${source.model}` : ''
-        console.log(`\n[助手${tag}] ${clip(text)}`)
+        console.log(`\n[assistant${tag}] ${clip(text)}`)
         break
       }
       case 'tool/call': {
@@ -147,7 +147,7 @@ function printTrail(id, { reasoning = false } = {}) {
         } else {
           args = JSON.stringify(raw ?? {})
         }
-        console.log(`  ↳ 工具 ${name} ${clip(args, 300)}`)
+        console.log(`  ↳ tool ${name} ${clip(args, 300)}`)
         break
       }
       case 'tool/result': {
@@ -155,35 +155,35 @@ function printTrail(id, { reasoning = false } = {}) {
         if (!block) break
         const body = textOfContent(block.content).replace(/\s*\n\s*/g, ' ')
         const failed = block.isError === true
-        console.log(`  ↳ 结果 ${failed ? '失败' : '完成'} ${clip(body || '(空)', 400)}`)
+        console.log(`  ↳ result ${failed ? 'failed' : 'ok'} ${clip(body || '(empty)', 400)}`)
         break
       }
       case 'turn/end': {
         const reason = data.reason && (data.reason.kind || data.reason)
-        console.log(`\n[轮次结束] ${typeof reason === 'string' ? reason : JSON.stringify(reason ?? '')}`)
+        console.log(`\n[turn end] ${typeof reason === 'string' ? reason : JSON.stringify(reason ?? '')}`)
         break
       }
       case 'reasoning-chunks':
-        if (reasoning && data.text) console.log(`  …思考 ${clip(String(data.text), 300)}`)
+        if (reasoning && data.text) console.log(`  …thinking ${clip(String(data.text), 300)}`)
         break
       default:
         break
     }
   }
   console.log('\n' + '─'.repeat(72))
-  console.log(`原始：${path.relative(process.cwd(), path.join(hit.dir, 'session.v4.jsonl.zstd'))}`)
+  console.log(`raw: ${path.relative(process.cwd(), path.join(hit.dir, 'session.v4.jsonl.zstd'))}`)
 }
 
-const USAGE = `读 dsh 自己的会话记录。
+const USAGE = `Read the session logs dsh keeps.
 
-  node bin/sessions.mjs                 列出所有会话（跨 cwd 桶）
-  node bin/sessions.mjs --mapus         只看 MAPUS 相关
-  node bin/sessions.mjs --cwd dsh-mapus 按 cwd 桶名过滤
-  node bin/sessions.mjs <id 前缀>       打印这一场的可读轨迹
-  node bin/sessions.mjs <id> --json     打印原始事件（逐行 JSON）
-  node bin/sessions.mjs <id> --reasoning 连思考过程一起打印
+  node bin/sessions.mjs                 list every session (across cwd buckets)
+  node bin/sessions.mjs --mapus         MAPUS-related only
+  node bin/sessions.mjs --cwd dsh-mapus filter by cwd bucket
+  node bin/sessions.mjs <id prefix>     print a readable trace of one session
+  node bin/sessions.mjs <id> --json     print raw events (one JSON per line)
+  node bin/sessions.mjs <id> --reasoning include the reasoning stream
 
-会话目录：$DSH_HOME/sessions/<cwd 转义>/<sessionId>/session*.jsonl.zstd`
+Sessions live in $DSH_HOME/sessions/<escaped cwd>/<sessionId>/session*.jsonl.zstd`
 
 function main() {
   const argv = process.argv.slice(2)
@@ -199,7 +199,7 @@ function main() {
     if (flags.has('--json')) {
       const hit = listSessions().find(item => item.id.startsWith(positional[0]))
       if (!hit) {
-        console.error(`找不到会话：${positional[0]}`)
+        console.error(`session not found: ${positional[0]}`)
         process.exit(1)
       }
       for (const event of readEvents(hit.dir)) console.log(JSON.stringify(event))
@@ -219,7 +219,7 @@ function main() {
   if (cwdFilter) rows = rows.filter(item => item.bucket.includes(cwdFilter))
 
   if (!rows.length) {
-    console.log(`没有会话。目录：${SESSIONS_DIR}`)
+    console.log(`no sessions. directory: ${SESSIONS_DIR}`)
     return
   }
 
@@ -232,12 +232,12 @@ function main() {
   })
   const wModel = Math.min(38, prepared.reduce((w, row) => Math.max(w, row.model.length), 5) + 2)
 
-  console.log(`${'时间'.padEnd(13)}${'轮'.padStart(3)}  ${'模型'.padEnd(wModel)}标题`)
+  console.log(`${'when'.padEnd(13)}${'#'.padStart(3)}  ${'model'.padEnd(wModel)}title`)
   for (const row of prepared) {
-    console.log(`${row.stamp.padEnd(13)}${String(row.turns).padStart(3)}  ${row.model.padEnd(wModel)}${row.title || '(无标题)'}`)
+    console.log(`${row.stamp.padEnd(13)}${String(row.turns).padStart(3)}  ${row.model.padEnd(wModel)}${row.title || '(untitled)'}`)
     console.log(`${''.padEnd(13)}${''.padStart(3)}  ${''.padEnd(wModel)}${row.id}   ← ${row.bucket}`)
   }
-  console.log(`\n共 ${prepared.length} 个会话。看某一场的轨迹：node bin/sessions.mjs <会话 id> [--reasoning]`)
+  console.log(`\n${prepared.length} sessions. Trace one: node bin/sessions.mjs <session id> [--reasoning]`)
 }
 
 main()

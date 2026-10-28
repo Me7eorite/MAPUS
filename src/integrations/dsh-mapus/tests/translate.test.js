@@ -73,7 +73,7 @@ test('error 原因与异常都收口成 error，并带上原因文案', () => {
   const state = createTurnState()
   state.endReason = 'error'
   assert.equal(finishTurn(state).type, 'error')
-  assert.match(finishTurn(state).message, /失败/)
+  assert.match(finishTurn(state).message, /failed/)
   const failed = finishTurn(createTurnState(), { failure: new Error('模型 401') })
   assert.equal(failed.type, 'error')
   assert.equal(failed.message, '模型 401')
@@ -84,7 +84,7 @@ test('cause 里的真实原因会拼进 error 文案', () => {
   outer.cause = new Error('连接被拒绝 ECONNREFUSED')
   const event = finishTurn(createTurnState(), { failure: outer })
   assert.equal(event.type, 'error')
-  assert.equal(event.message, '模型请求失败：连接被拒绝 ECONNREFUSED')
+  assert.equal(event.message, '模型请求失败: 连接被拒绝 ECONNREFUSED')
 
   const same = new Error('模型请求失败')
   same.cause = new Error('模型请求失败')

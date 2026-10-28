@@ -9,11 +9,11 @@ import { TOOLS, PASSTHROUGH_TOOL, CATALOG_TOOL, buildToolDefinition } from './to
 import { Turn } from './turn.js'
 
 const DEFAULT_PERSONA = [
-  '你是 MAPUS 的网页分析助手，运行在 DeepSeek Harness 之上。',
-  '你通过 mapus_* 工具驱动用户的浏览器：读页面、跑扫描、看浏览器特征、调脚本、用真实鼠标键盘操作页面。',
-  '本机操作直接用 dsh 原生工具：bash（macOS/Linux）/ pwsh（Windows）跑命令，read / write / edit 读写文件，glob / grep 找文件。这是唯一的本机执行通道。',
-  '工作方式：一次只做一个动作，先拿证据再下结论；每一步都要有明确目的，别重复同一个动作；没验证的结论要标成「未验证」。',
-  '遇到工具返回 error，先判断是参数问题、页面状态问题还是能力未启用，再决定换路径还是告知用户。',
+  'You are the web-analysis assistant inside MAPUS, running on DeepSeek Harness.',
+  'You drive the user browser through mapus_* tools: read pages, run scans, inspect browser fingerprints, toggle scripts, and operate the page with real mouse and keyboard input.',
+  'For local work use the native dsh tools: bash (macOS/Linux) or pwsh (Windows) for commands, read / write / edit for files, glob / grep for search. That is the only local execution path.',
+  'Working style: one action at a time, gather evidence before concluding, keep every step purposeful, never repeat the same action, and mark anything unverified as unverified.',
+  'When a tool returns an error, decide whether it is a bad argument, a page-state problem or a disabled capability, then either change approach or tell the user.',
 ].join('\n')
 
 const SOURCE_KIND = 'plugin:dsh-mapus'
@@ -50,8 +50,8 @@ const UNREADABLE = /refuses this format|artifact remains unchanged|raw log:/i
 const HOST_PRESET_ID = 'mapus-host'
 
 const HOST_PRESET = {
-  name: 'MAPUS 桥 · 本机工具',
-  description: 'MAPUS 桥为每个会话挂载的 dsh 原生 shell / 文件读写 / 搜索 / 后台任务工具。',
+  name: 'MAPUS bridge · local tools',
+  description: 'Native dsh shell, file, search and background-job tools the MAPUS bridge mounts for every session.',
   order: 900,
 }
 
@@ -122,21 +122,21 @@ export function toSessionId(prefix, conversationId) {
 
 export function renderContext(context) {
   if (!context || typeof context !== 'object') return ''
-  const lines = ['【当前现场】']
-  if (context.title) lines.push(`标题：${context.title}`)
-  if (context.url) lines.push(`URL：${context.url}`)
+  const lines = ['## Current page']
+  if (context.title) lines.push(`Title: ${context.title}`)
+  if (context.url) lines.push(`URL: ${context.url}`)
   if (Array.isArray(context.fingerprints) && context.fingerprints.length) {
-    lines.push(`浏览器特征：${context.fingerprints.slice(0, 10).map(item => (item && item.name) || item).join('、')}`)
+    lines.push(`Browser fingerprints: ${context.fingerprints.slice(0, 10).map(item => (item && item.name) || item).join(', ')}`)
   }
   if (context.anti && typeof context.anti === 'object') {
-    lines.push(`隐私防护：${context.anti.isEnabled ? '开启' : '关闭'}，本站拦截 ${Number(context.anti.blocks) || 0} 次`)
+    lines.push(`Privacy protection: ${context.anti.isEnabled ? 'on' : 'off'}, ${Number(context.anti.blocks) || 0} blocked on this site`)
   }
   if (context.hooks && typeof context.hooks === 'object') {
     const enabled = Array.isArray(context.hooks.enabled) ? context.hooks.enabled : []
-    lines.push(`脚本：已启用 ${enabled.join('、') || '无'}`)
+    lines.push(`Scripts: enabled ${enabled.join(', ') || 'none'}`)
   }
   if (Number.isFinite(context.total) && context.total > 0) {
-    lines.push(`已扫描：${context.total} 条，进度 ${context.progress === null || context.progress === undefined ? '未知' : context.progress + '%'}`)
+    lines.push(`Scanned: ${context.total} items, progress ${context.progress === null || context.progress === undefined ? 'unknown' : context.progress + '%'}`)
   }
   if (context.note) lines.push(String(context.note))
   if (lines.length === 1) return ''
@@ -145,12 +145,12 @@ export function renderContext(context) {
 
 export function renderHistory(history, limit = 20) {
   if (!Array.isArray(history) || !history.length) return ''
-  const lines = ['【此前对话摘要】', '这段对话在接入 Harness 之前就已经发生过，以下是它的记录：']
+  const lines = ['## Earlier conversation', 'This conversation happened before Harness was connected; its record follows:']
   for (const item of history.slice(-limit)) {
     if (!item || !item.role) continue
     const text = String(item.content || '').trim()
     if (!text) continue
-    lines.push(`${item.role === 'user' ? '用户' : '助手'}：${text.slice(0, 1200)}`)
+    lines.push(`${item.role === 'user' ? 'User' : 'Assistant'}: ${text.slice(0, 1200)}`)
   }
   if (lines.length === 2) return ''
   return lines.join('\n')
@@ -182,7 +182,7 @@ export class AgentPool {
     const match = /raw log:\s*([^)）\n]+)/i.exec(reason)
     const logPath = match ? match[1].trim() : ''
     if (!logPath || !/\.zstd$/i.test(logPath)) {
-      this.log('会话日志无法解析，但拿不到路径，无法隔离', { sessionId })
+      this.log('session log is unparsable and its path is unknown, cannot quarantine', { sessionId })
       return false
     }
     const stamp = new Date().toISOString().replace(/[:.]/g, '-')
@@ -191,10 +191,10 @@ export class AgentPool {
       await mkdir(dirname(target), { recursive: true })
       await rename(dirname(logPath), target)
       this.quarantined.add(sessionId)
-      this.log('会话日志无法解析，已隔离并重建（旧日志保留在 quarantine 目录）', { sessionId, to: target })
+      this.log('session log was unparsable; quarantined and rebuilt (old log kept under quarantine/)', { sessionId, to: target })
       return true
     } catch (error) {
-      this.log('隔离损坏会话失败', { sessionId, error: error && error.message })
+      this.log('failed to quarantine the damaged session', { sessionId, error: error && error.message })
       return false
     }
   }
@@ -228,7 +228,7 @@ export class AgentPool {
         this.routeStamps.set(sessionId, stamp)
         return live
       }
-      this.log('模型已变更，重建 agent', { sessionId, from: previous.split('\u0000').slice(0, 2), to: [route.provider, route.model] })
+      this.log('model changed, rebuilding the agent', { sessionId, from: previous.split('\u0000').slice(0, 2), to: [route.provider, route.model] })
       await this.#teardown(sessionId)
     }
 
@@ -261,7 +261,7 @@ export class AgentPool {
       } catch (resumeError) {
         const reason = reasonOf(resumeError)
         if (CONTENTION.test(reason) && attempt < RESUME_RETRIES) {
-          this.log('会话写句柄被占用，稍后重试', { sessionId, attempt: attempt + 1 })
+          this.log('session write handle is busy, retrying shortly', { sessionId, attempt: attempt + 1 })
           await new Promise(resolve => setTimeout(resolve, this.waitBeforeRetry(attempt)))
           continue
         }
@@ -269,10 +269,10 @@ export class AgentPool {
           if (UNREADABLE.test(reason) && await this.#quarantine(sessionId, reason)) {
             return await create()
           }
-          throw new Error(`恢复会话失败：${reason}`, { cause: resumeError })
+          throw new Error(`failed to resume the session: ${reason}`, { cause: resumeError })
         }
         missing = true
-        if (process.env.DSH_MAPUS_DEBUG) this.log('会话尚未落盘，新建', { sessionId })
+        if (process.env.DSH_MAPUS_DEBUG) this.log('session is not persisted yet, creating a new one', { sessionId })
         break
       }
     }
@@ -283,7 +283,7 @@ export class AgentPool {
       const reason = reasonOf(createError)
       if (!/already exists|already registered/i.test(reason)) throw createError
 
-      this.log('会话已存在于 harness，改为复用而不是报错', {
+      this.log('session already exists in the harness, reusing it instead of failing', {
         sessionId,
         resumeReason: missing ? 'not found' : undefined,
       })
@@ -298,7 +298,7 @@ export class AgentPool {
           last = error
           const why = reasonOf(error)
           if (attempt < RESUME_RETRIES && (CONTENTION.test(why) || /not found/i.test(why))) {
-            this.log('会话已注册但句柄未就绪，稍后重试', { sessionId, attempt: attempt + 1 })
+            this.log('session is registered but its handle is not ready, retrying shortly', { sessionId, attempt: attempt + 1 })
             await new Promise(resolve => setTimeout(resolve, this.waitBeforeRetry(attempt)))
             continue
           }
@@ -307,8 +307,8 @@ export class AgentPool {
       }
 
       throw new Error(
-        `会话 ${sessionId} 已在 harness 的会话表里注册，但既拿不到 agent 也打不开写句柄：`
-        + `${reasonOf(last)}。通常是另一处仍持有该会话，或会话文件所在的目录与当前工作目录不一致（当前 cwd=${cwd}）。`,
+        `session ${sessionId} is registered in the harness session table, yet neither the agent nor a write handle can be opened: `
+        + `${reasonOf(last)}. Usually another place still holds this session, or the session directory and the current working directory differ (cwd=${cwd}).`,
         { cause: last },
       )
     }
@@ -327,7 +327,7 @@ export class AgentPool {
         reasoningEffort: typeof selected.reasoningEffort === 'string' ? selected.reasoningEffort.trim() : '',
       }
     } catch (error) {
-      this.log('读取 dsh 默认模型失败', { error: error && error.message })
+      this.log('failed to read the dsh default model', { error: error && error.message })
       return empty
     }
   }
@@ -340,7 +340,7 @@ export class AgentPool {
     try {
       await handle.dispose()
     } catch (error) {
-      this.log('释放旧 agent 失败', { sessionId, error: error && error.message })
+      this.log('failed to release the old agent', { sessionId, error: error && error.message })
     }
   }
 
@@ -375,7 +375,7 @@ export class AgentPool {
     if (outcome.ok) {
       if (!this.mounted) {
         this.mounted = true
-        this.log('已给 agent 挂上 dsh 原生工具：bash / pwsh、read / write / edit、glob / grep、job_*')
+        this.log('mounted native dsh tools: bash / pwsh, read / write / edit, glob / grep, job_*')
       }
       return
     }
@@ -383,8 +383,8 @@ export class AgentPool {
     this.mountWarned = true
     this.log(
       outcome.timeout
-    ? '挂载 dsh 自带工具超时，本轮没有本机执行能力（只能用 mapus_* 那几个浏览器工具）'
-    : 'dsh 自带的 shell / 文件工具没挂上，本轮没有本机执行能力（只能用 mapus_* 那几个浏览器工具）',
+    ? 'timed out mounting the dsh native tools; no local execution this turn (only the mapus_* browser tools)'
+    : 'the dsh shell / file tools did not mount; no local execution this turn (only the mapus_* browser tools)',
       outcome.timeout ? { preset: id } : { preset: id, error: outcome.error && outcome.error.message },
     )
   }
@@ -401,7 +401,7 @@ export class AgentPool {
       if (mode && !this.sandboxWarned) {
         this.sandboxWarned = true
         this.log(
-          '这台机器上没有可用的沙箱后端，本机命令按 danger-full-access 运行（harness 默认的 workspace-write 会直接拒绝执行）',
+          'no sandbox backend is available on this machine, so local commands run as danger-full-access (the harness default workspace-write would refuse them)',
           { detail: probe.detail },
         )
       }
@@ -411,7 +411,7 @@ export class AgentPool {
     try {
       session.append('sandbox/mode', { mode })
     } catch (error) {
-      this.log('写入沙箱模式失败，本机命令可能全部被拒', { error: error && error.message })
+      this.log('failed to set the sandbox mode, local commands may all be refused', { error: error && error.message })
     }
   }
 
@@ -447,7 +447,7 @@ export class AgentPool {
     try {
       session.append('approval/policy', { policy: 'never' })
     } catch (error) {
-      this.log('写入审批策略失败，模型可能仍会请求沙箱升级', { error: error && error.message })
+      this.log('failed to set the approval policy, the model may still ask for sandbox escalation', { error: error && error.message })
     }
   }
 
@@ -466,7 +466,7 @@ export class AgentPool {
     this.presetReady = (async () => {
       const presets = this.ctx.get('agentPresets')
       if (!presets || typeof presets.register !== 'function') {
-        this.log('这个 dsh 构建没有 agent preset 注册表，本机执行工具挂不上')
+        this.log('this dsh build has no agent preset registry, so local execution tools cannot mount')
         return null
       }
       const outcome = await settleWithin(
@@ -478,12 +478,12 @@ export class AgentPool {
         return HOST_PRESET_ID
       }
       if (outcome.timeout) {
-        this.log('注册本机工具 preset 超时，本机执行工具挂不上')
+        this.log('timed out registering the local-tool preset, local execution tools cannot mount')
         return null
       }
       const reason = String((outcome.error && outcome.error.message) || outcome.error)
       if (/duplicate agent preset/i.test(reason)) return HOST_PRESET_ID
-      this.log('注册本机工具 preset 失败，本机执行工具挂不上', { error: reason })
+      this.log('failed to register the local-tool preset, local execution tools cannot mount', { error: reason })
       return null
     })()
     return this.presetReady
@@ -507,7 +507,7 @@ export class AgentPool {
     if (call === CATALOG_TOOL) return this.catalog()
     const turn = this.turns.get(sessionId)
     if (!turn || !turn.live) {
-      throw new Error('MAPUS 侧边栏没有正在进行的对话，这个工具只能在面板发起的那一轮里调用')
+      throw new Error('the MAPUS side panel has no conversation in progress; this tool can only be called inside a turn started from the panel')
     }
     return await turn.rpc(call, args, signal)
   }
@@ -515,7 +515,7 @@ export class AgentPool {
   catalog() {
     return {
       tools: TOOLS.filter(tool => !tool.passthrough).map(tool => ({ name: tool.name, call: tool.call })),
-      note: `未列出的扩展能力可以用 ${PASSTHROUGH_TOOL} 直接调用（name + args）。`,
+      note: `Capabilities not listed here can be called directly with ${PASSTHROUGH_TOOL} (name + args).`,
     }
   }
 
@@ -523,7 +523,7 @@ export class AgentPool {
     if (!session || !event) return
     const sessionId = String(session.id)
     if (event.type === 'approval/asked') {
-      this.log('模型请求放宽沙箱，按 approvalPolicy 自动处理', {
+      this.log('the model asked to relax the sandbox, handled by approvalPolicy', {
         sessionId,
         tool: event.data && event.data.toolName,
         reason: event.data && event.data.reason,
@@ -538,7 +538,7 @@ export class AgentPool {
       try {
         payload = JSON.stringify(event.data)
       } catch (_) {
-        payload = '<不可序列化>'
+        payload = '<not serializable>'
       }
       console.error(`[dsh-mapus:debug] ${event.type} ${String(payload).slice(0, 2000)}`)
     }
@@ -568,13 +568,13 @@ export class AgentPool {
     const state = createTurnState({ maxSteps: this.config.maxSteps })
     const stale = this.turns.get(sessionId)
     if (stale && stale.live) {
-      this.log('同一会话有新的一轮，终止上一轮', { sessionId })
+      this.log('a new turn started in this session, aborting the previous one', { sessionId })
       try {
         stale.abort('superseded')
         const running = this.ctx.agents.get(sessionId)
         if (running) running.cancel({ kind: 'plugin' })
       } catch (error) {
-        log('终止上一轮失败', { sessionId, error: error && error.message })
+        log('failed to abort the previous turn', { sessionId, error: error && error.message })
       }
     }
     this.states.set(sessionId, state)
@@ -590,7 +590,7 @@ export class AgentPool {
         try {
           live.cancel({ kind: 'plugin' })
         } catch (error) {
-          log('客户端断开后取消失败', { sessionId, error: error && error.message })
+          log('failed to cancel after the client disconnected', { sessionId, error: error && error.message })
         }
       }
     }
@@ -612,14 +612,14 @@ export class AgentPool {
       agent.followup({
         id: `mapus_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
         role: 'user',
-        content: [{ type: 'text', text: String(prompt || '').trim() || '（空消息）' }],
+        content: [{ type: 'text', text: String(prompt || '').trim() || '(empty message)' }],
         source: { kind: 'user' },
       })
 
       await Promise.race([turn.whenTurnEnded(), turn.whenEnded(), agent.whenIdle()])
     } catch (error) {
       failure = error instanceof Error ? error : new Error(String(error))
-      log('本轮执行失败', { sessionId, error: failure.message, cause: failure.cause && failure.cause.message, stack: failure.stack })
+      log('turn failed', { sessionId, error: failure.message, cause: failure.cause && failure.cause.message, stack: failure.stack })
     }
 
     if (!turn.ended) {
@@ -644,7 +644,7 @@ export class AgentPool {
         source,
       })
     } catch (error) {
-      this.log('注入上下文失败', { error: error && error.message })
+      this.log('failed to inject the context', { error: error && error.message })
     }
   }
 
@@ -657,7 +657,7 @@ export class AgentPool {
         agent.cancel({ kind: reason === 'user' ? 'user' : 'plugin' })
         cancelled = true
       } catch (error) {
-        this.log('取消失败', { sessionId, error: error && error.message })
+        this.log('failed to cancel', { sessionId, error: error && error.message })
       }
     }
     if (turn) turn.abort('cancelled')
@@ -675,7 +675,7 @@ export class AgentPool {
       try {
         await release()
       } catch (error) {
-        this.log('注销本机工具 preset 失败', { error: error && error.message })
+        this.log('failed to unregister the local-tool preset', { error: error && error.message })
       }
     }
     const handles = [...this.handles.values()]
@@ -684,7 +684,7 @@ export class AgentPool {
       try {
         await handle.dispose()
       } catch (error) {
-        this.log('释放会话失败', { error: error && error.message })
+        this.log('failed to release the session', { error: error && error.message })
       }
     }
   }

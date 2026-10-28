@@ -11,7 +11,7 @@ const OUTPUT = {
   },
   render(_args, value) {
     if (value && typeof value === 'object' && value.ok === false) {
-      return [{ type: 'text', text: `调用失败：${value.error || '未知错误'}` }]
+      return [{ type: 'text', text: `Call failed: ${value.error || 'unknown error'}` }]
     }
     const payload = value && typeof value === 'object' && 'result' in value ? value.result : value
     let text
@@ -20,8 +20,8 @@ const OUTPUT = {
     } catch {
       text = String(payload)
     }
-    if (typeof text === 'string' && text.length > 16_000) text = text.slice(0, 16_000) + '…[已截断]'
-    return [{ type: 'text', text: text || '（无返回内容）' }]
+    if (typeof text === 'string' && text.length > 16_000) text = text.slice(0, 16_000) + '…[truncated]'
+    return [{ type: 'text', text: text || '(no output)' }]
   },
 }
 
@@ -30,153 +30,153 @@ export const TOOLS = [
     name: 'mapus_page_context',
     call: 'page_context',
     description:
-      '读取当前标签页的整体现场：URL、标题、扫描进度、各类敏感数据数量、安全风险、技术栈、隐私防护统计、脚本状态。回答任何与当前站点有关的问题前先调用它。',
+      'Read the current tab as a whole: URL, title, scan progress, counts per sensitive-data class, security findings, tech stack, privacy-protection stats and script state. Call this first before answering anything about the current site.',
     parameters: {},
   },
   {
     name: 'mapus_scan_findings',
     call: 'scan_findings',
     description:
-      '读取敏感数据扫描明细。keys 可指定类型（domains/apis/absoluteApis/urls/credentials/cookies/idKeys/phones/emails/idcards/ips/companies/jwts/jsFiles/vueFiles/docFiles/moduleFiles/githubUrls），keyword 做子串过滤。',
+      'Read sensitive-data scan details. keys picks classes (domains/apis/absoluteApis/urls/credentials/cookies/idKeys/phones/emails/idcards/ips/companies/jwts/jsFiles/vueFiles/docFiles/moduleFiles/githubUrls); keyword filters by substring.',
     parameters: {
-      keys: { type: 'array', items: { type: 'string' }, description: '要读取的类型，省略为全部' },
-      keyword: { type: 'string', description: '仅返回包含该子串的条目' },
-      limit: { type: 'integer', description: '每种类型最多返回条数，默认 30，最大 200' },
+      keys: { type: 'array', items: { type: 'string' }, description: 'Classes to read; omit for all' },
+      keyword: { type: 'string', description: 'Only return entries containing this substring' },
+      limit: { type: 'integer', description: 'Max entries per class (default 30, cap 200)' },
     },
   },
   {
     name: 'mapus_fingerprints',
     call: 'fingerprints',
-    description: '读取技术栈识别结果（服务器、框架、CDN、面板、分析工具等）。',
+    description: 'Read tech-stack detection results (server, framework, CDN, panel, analytics and so on).',
     parameters: {},
   },
   {
     name: 'mapus_anti_state',
     call: 'anti_state',
-    description: '读取隐私防护状态：是否开启、UA 伪装、本站拦截次数、最近被拦截的目标、页面内命中的追踪与特征采集行为。',
+    description: 'Read privacy-protection state: whether it is on, UA spoofing, blocked count for this site, recently blocked targets, and tracking or fingerprinting hits on the page.',
     parameters: {},
   },
   {
     name: 'mapus_hook_state',
     call: 'hook_state',
-    description: '读取调试防护与脚本状态、脚本库。includeCatalog=true 时同时返回全部可用脚本 id。',
+    description: 'Read debugger-protection and script state plus the script library. With includeCatalog=true the full list of available script ids is returned too.',
     parameters: {
-      includeCatalog: { type: 'boolean', description: '是否返回完整脚本目录' },
+      includeCatalog: { type: 'boolean', description: 'Return the full script catalog' },
     },
   },
   {
     name: 'mapus_page_text',
     call: 'page_text',
-    description: '读取页面可见文本（已剔除 script/style），用于理解业务与提示信息。',
+    description: 'Read the visible text of the page (script/style stripped) to understand the business and on-screen messages.',
     parameters: {
-      maxChars: { type: 'integer', description: '最多返回多少字符，默认 4000，最大 20000' },
+      maxChars: { type: 'integer', description: 'Max characters to return (default 4000, cap 20000)' },
     },
   },
   {
     name: 'mapus_dom_query',
     call: 'dom_query',
-    description: '用 CSS 选择器查询元素，返回数量、文本片段与指定属性。用于确认页面结构、表单、隐藏元素。',
+    description: 'Query elements with a CSS selector; returns the count, text snippets and requested attributes. Use it to confirm page structure, forms and hidden elements.',
     parameters: {
-      selector: { type: 'string', required: true, description: 'CSS 选择器，例如 input[type=password]' },
-      limit: { type: 'integer', description: '最多返回多少个元素，默认 20' },
-      attributes: { type: 'array', items: { type: 'string' }, description: '要读取的属性名，例如 ["href","name"]' },
+      selector: { type: 'string', required: true, description: 'CSS selector, for example input[type=password]' },
+      limit: { type: 'integer', description: 'Max elements to return (default 20)' },
+      attributes: { type: 'array', items: { type: 'string' }, description: 'Attribute names to read, for example ["href","name"]' },
     },
   },
   {
     name: 'mapus_page_storage',
     call: 'page_storage',
-    description: '读取 localStorage / sessionStorage 条目（键名与长度；includeValues=true 时附带截断后的值），或读取 Cookie。',
+    description: 'Read localStorage / sessionStorage entries (keys and lengths; includeValues=true adds truncated values), or read cookies.',
     parameters: {
-      storage: { type: 'string', enum: ['local', 'session', 'cookie'], description: '存储类型，默认 local' },
-      includeValues: { type: 'boolean', description: '是否返回值内容，默认 false' },
-      limit: { type: 'integer', description: '最多返回条数，默认 40' },
+      storage: { type: 'string', enum: ['local', 'session', 'cookie'], description: 'Storage kind (default local)' },
+      includeValues: { type: 'boolean', description: 'Include values (default false)' },
+      limit: { type: 'integer', description: 'Max entries to return (default 40)' },
     },
   },
   {
     name: 'mapus_collect_endpoints',
     call: 'collect_endpoints',
-    description: '收集页面里的脚本地址、资源链接与疑似接口路径（DOM 与内联脚本正则提取），用于梳理接口面。',
+    description: 'Collect script URLs, asset links and likely API paths from the page (DOM plus regex over inline scripts) to map the endpoint surface.',
     parameters: {},
   },
   {
     name: 'mapus_run_scan',
     call: 'run_scan',
-    description: '让当前页面重新执行一次敏感数据扫描（会清空旧结果）。调用后等几秒再用 mapus_page_context 读结果。',
+    description: 'Re-run the sensitive-data scan on the current page (previous results are cleared). Wait a few seconds, then read the outcome with mapus_page_context.',
     parameters: {},
   },
   {
     name: 'mapus_probe_http',
     call: 'probe_http',
-    description: '从后台直接向目标发 HTTP 请求（等价 curl）：自定义方法、路径、头、Body，自动带浏览器 Cookie，不受页面 CSP 与同源限制。返回状态码、响应头与响应体片段。用于验证未授权访问、越权、注入与接口结构。',
+    description: 'Send an HTTP request from the background exactly like curl: custom method, path, headers and body, with browser cookies attached, bypassing page CSP and same-origin limits. Returns status, headers and a body snippet. Use it to verify unauthenticated access, privilege escalation, injection and response shape.',
     parameters: {
-      method: { type: 'string', description: 'HTTP 方法，默认 GET' },
-      path: { type: 'string', description: '路径或完整 URL；相对路径会自动拼到当前标签页的源站' },
-      headers: { type: 'object', additionalProperties: true, description: '自定义请求头' },
-      cookies: { type: 'object', additionalProperties: true, description: '要写入的 Cookie，如 {"security":"low"}' },
-      body: { type: 'string', description: '请求体（POST/PUT 用）' },
-      timeoutMs: { type: 'integer', description: '超时毫秒，默认 15000，最大 60000' },
+      method: { type: 'string', description: 'HTTP method (default GET)' },
+      path: { type: 'string', description: 'Path or full URL; a relative path is resolved against the origin of the current tab' },
+      headers: { type: 'object', additionalProperties: true, description: 'Extra request headers' },
+      cookies: { type: 'object', additionalProperties: true, description: 'Cookies to set, for example {"security":"low"}' },
+      body: { type: 'string', description: 'Request body (for POST/PUT)' },
+      timeoutMs: { type: 'integer', description: 'Timeout in ms (default 15000, cap 60000)' },
     },
   },
   {
     name: 'mapus_browser_tabs',
     call: 'browser_tabs',
-    description: '管理标签页：list 列出（拿 tabId）、activate 切换、open 新开、close 关闭、detach 断开调试器。要操作其他标签页时先 list。',
+    description: 'Manage tabs: list (to get tabId), activate, open, close, detach (release the debugger). Call list first to work on another tab.',
     parameters: {
-      action: { type: 'string', required: true, enum: ['list', 'activate', 'open', 'close', 'detach'], description: '默认 list' },
-      targetTabId: { type: 'integer', description: 'activate / close / detach 的目标标签页 id' },
-      url: { type: 'string', description: 'open 的目标地址' },
-      active: { type: 'boolean', description: 'open 时是否立即切过去，默认 true' },
+      action: { type: 'string', required: true, enum: ['list', 'activate', 'open', 'close', 'detach'], description: 'Default list' },
+      targetTabId: { type: 'integer', description: 'Target tab id for activate / close / detach' },
+      url: { type: 'string', description: 'URL for open' },
+      active: { type: 'boolean', description: 'Switch to the tab right after open (default true)' },
     },
   },
   {
     name: 'mapus_browser_navigate',
     call: 'browser_navigate',
-    description: '真正驱动浏览器导航：goto 打开 url、back / forward 走历史、reload 刷新（hard=true 忽略缓存）。',
+    description: 'Actually drive browser navigation: goto a url, back / forward through history, reload (hard=true skips the cache).',
     parameters: {
       action: { type: 'string', enum: ['goto', 'back', 'forward', 'reload'] },
-      url: { type: 'string', description: 'goto 的目标地址' },
-      hard: { type: 'boolean', description: 'reload 时忽略缓存' },
-      settleMs: { type: 'integer', description: '导航后等待毫秒数，默认 500' },
+      url: { type: 'string', description: 'URL for goto' },
+      hard: { type: 'boolean', description: 'Ignore the cache on reload' },
+      settleMs: { type: 'integer', description: 'Ms to wait after navigating (default 500)' },
     },
   },
   {
     name: 'mapus_browser_snapshot',
     call: 'browser_snapshot',
     description:
-      '拍摄页面结构快照：返回全部可交互元素（链接、按钮、输入框、下拉、可编辑区、带 role 的控件），每个带 ref（如 e3）、selector、可见性与坐标。点击/输入前先拍一次。',
+      'Take a structure snapshot of the page: every interactive element (links, buttons, inputs, selects, editable areas, anything with a role), each with a ref (for example e3), a selector, visibility and coordinates. Take one before clicking or typing.',
     parameters: {
-      limit: { type: 'integer', description: '最多返回多少元素，默认 120，最大 300' },
+      limit: { type: 'integer', description: 'Max elements to return (default 120, cap 300)' },
     },
   },
   {
     name: 'mapus_browser_click',
     call: 'browser_click',
-    description: '用真实鼠标事件（CDP，isTrusted=true）点击元素。selector 或 ref 二选一，ref 来自 mapus_browser_snapshot。',
+    description: 'Click an element with real mouse events (CDP, isTrusted=true). Pass either selector or ref; ref comes from mapus_browser_snapshot.',
     parameters: {
-      selector: { type: 'string', description: 'CSS 选择器' },
-      ref: { type: 'string', description: '快照里的 ref，如 e3' },
-      button: { type: 'string', enum: ['left', 'right'], description: '默认 left' },
-      clickCount: { type: 'integer', description: '2 表示双击' },
+      selector: { type: 'string', description: 'CSS selector' },
+      ref: { type: 'string', description: 'Ref from a snapshot, for example e3' },
+      button: { type: 'string', enum: ['left', 'right'], description: 'Default left' },
+      clickCount: { type: 'integer', description: '2 means double click' },
     },
   },
   {
     name: 'mapus_browser_type',
     call: 'browser_type',
-    description: '往输入框真实打字（CDP insertText，React/Vue 受控组件也能收到）。clear=true 先清空，submit=true 打完回车。',
+    description: 'Type into a field with real keystrokes (CDP insertText, so React/Vue controlled inputs receive it too). clear=true empties it first, submit=true presses Enter afterwards.',
     parameters: {
       selector: { type: 'string' },
       ref: { type: 'string' },
-      text: { type: 'string', description: '要输入的内容' },
-      clear: { type: 'boolean', description: '是否先清空' },
-      submit: { type: 'boolean', description: '是否输入后回车' },
+      text: { type: 'string', description: 'Text to type' },
+      clear: { type: 'boolean', description: 'Clear the field first' },
+      submit: { type: 'boolean', description: 'Press Enter after typing' },
     },
   },
   {
     name: 'mapus_browser_key',
     call: 'browser_key',
-    description: '发送键盘事件，支持组合键（Enter / Tab / Escape / Control+A / Meta+Enter）。给 selector 或 ref 会先点击再按键。',
+    description: 'Send key events, combos included (Enter / Tab / Escape / Control+A / Meta+Enter). Passing a selector or ref clicks the element first.',
     parameters: {
-      key: { type: 'string', required: true, description: '键名或组合' },
+      key: { type: 'string', required: true, description: 'Key name or combo' },
       selector: { type: 'string' },
       ref: { type: 'string' },
     },
@@ -184,10 +184,10 @@ export const TOOLS = [
   {
     name: 'mapus_browser_scroll',
     call: 'browser_scroll',
-    description: '滚动页面：to=top/bottom、deltaY 滚指定像素（负值向上）、给 selector/ref 则把元素滚到视口中间（懒加载列表常用）。',
+    description: 'Scroll the page: to=top/bottom, deltaY scrolls that many pixels (negative goes up), or pass selector/ref to bring an element into view (handy for lazy lists).',
     parameters: {
       to: { type: 'string', enum: ['top', 'bottom'] },
-      deltaY: { type: 'integer', description: '滚动像素，默认 600' },
+      deltaY: { type: 'integer', description: 'Pixels to scroll (default 600)' },
       x: { type: 'number' },
       y: { type: 'number' },
       selector: { type: 'string' },
@@ -197,53 +197,53 @@ export const TOOLS = [
   {
     name: 'mapus_browser_screenshot',
     call: 'browser_screenshot',
-    description: '截图并显示在侧边栏供用户查看，fullPage=true 截整页。注意：模型自己读不到图片内容。',
+    description: 'Take a screenshot and show it in the side panel for the user; fullPage=true captures the whole page. Note: the model cannot read the image itself.',
     parameters: {
-      fullPage: { type: 'boolean', description: '是否截整页' },
+      fullPage: { type: 'boolean', description: 'Capture the whole page' },
     },
   },
   {
     name: 'mapus_browser_eval',
     call: 'browser_eval',
-    description: '在页面主世界（MAIN world）执行任意 JavaScript 并返回结果。用于验证 DOM XSS、读取框架内部状态、调用页面自带函数。',
+    description: 'Run arbitrary JavaScript in the page MAIN world and return the result. Use it to verify DOM XSS, read framework internals, or call functions the page provides.',
     parameters: {
-      expression: { type: 'string', required: true, description: '要执行的表达式或 IIFE，可用 return' },
-      awaitPromise: { type: 'boolean', description: '是否等待 Promise 结果' },
+      expression: { type: 'string', required: true, description: 'Expression or IIFE to run; return is allowed' },
+      awaitPromise: { type: 'boolean', description: 'Await a Promise result' },
     },
   },
   {
     name: 'mapus_browser_network',
     call: 'browser_network',
-    description: '读取 CDP 层抓到的网络请求与响应体。用于分析接口、越权、参数与返回结构。',
+    description: 'Read network requests and response bodies captured at the CDP layer. Use it to analyse endpoints, privilege escalation, parameters and response shape.',
     parameters: {
-      limit: { type: 'integer', description: '最多返回多少条，默认 30' },
-      keyword: { type: 'string', description: '按 URL 或 method 过滤，例如 api 或 POST' },
-      includeBody: { type: 'boolean', description: '是否附带响应体片段' },
+      limit: { type: 'integer', description: 'Max entries to return (default 30)' },
+      keyword: { type: 'string', description: 'Filter by URL or method, for example api or POST' },
+      includeBody: { type: 'boolean', description: 'Include a response body snippet' },
     },
   },
   {
     name: 'mapus_browser_console',
     call: 'browser_console',
-    description: '读取控制台日志与页面异常（含未捕获错误）。用于发现前端报错、调试防护提示与数据泄露。',
+    description: 'Read console logs and page exceptions (uncaught errors included) to spot front-end errors, anti-debug notices and data leaks.',
     parameters: {
-      limit: { type: 'integer', description: '最多返回多少条，默认 50' },
-      level: { type: 'string', enum: ['all', 'error', 'warn', 'log'], description: '默认 all' },
+      limit: { type: 'integer', description: 'Max entries to return (default 50)' },
+      level: { type: 'string', enum: ['all', 'error', 'warn', 'log'], description: 'Default all' },
     },
   },
   {
     name: CATALOG_TOOL,
     call: CATALOG_TOOL,
-    description: '列出 MAPUS 扩展当前提供的全部能力（扩展侧工具名 + 说明）。要调用清单里没有列出的工具时，先查这里，再用 mapus_tool 转发。',
+    description: 'List every capability the MAPUS extension currently offers (extension-side tool name plus description). To call something not listed here, look it up first, then forward it with mapus_tool.',
     parameters: {},
   },
   {
     name: PASSTHROUGH_TOOL,
     passthrough: true,
     description:
-      '调用任一 MAPUS 扩展能力。name 传扩展侧工具名（先用 mapus_catalog 查），args 传该工具的参数对象。用于本清单未列出的工具。',
+      'Call any MAPUS extension capability. name is the extension-side tool name (look it up with mapus_catalog first), args is the argument object for that tool. Use it for tools not listed here.',
     parameters: {
-      name: { type: 'string', required: true, description: '扩展侧工具名' },
-      args: { type: 'object', additionalProperties: true, description: '该工具的参数对象' },
+      name: { type: 'string', required: true, description: 'Extension-side tool name' },
+      args: { type: 'object', additionalProperties: true, description: 'Argument object for that tool' },
     },
   },
 ]
@@ -274,7 +274,7 @@ export function buildToolDefinition(spec, invoke, resolve) {
         let params
         if (spec.passthrough) {
           const target = String(input.name || '').trim()
-          if (!target) return { ok: false, error: 'name 不能为空：先用 mapus_catalog 查可用工具' }
+          if (!target) return { ok: false, error: 'name is empty: look up available tools with mapus_catalog first' }
           call = resolve(target)
           params = input.args && typeof input.args === 'object' ? input.args : {}
         } else {

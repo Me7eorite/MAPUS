@@ -1,6 +1,30 @@
 
 export const $ = (selector, root = document) => root.querySelector(selector);
 export const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+
+export function t(text, params) {
+  const api = globalThis.ADB_I18N;
+  let out = text;
+  if (api && typeof api.translate === 'function') {
+    try {
+      out = api.translate(text);
+    } catch (_) {
+      out = text;
+    }
+  }
+  if (Array.isArray(params) && params.length) {
+    out = String(out).replace(/\{(\d+)\}/g, (token, index) => {
+      const value = params[Number(index)];
+      return value === undefined || value === null ? token : String(value);
+    });
+  }
+  return out;
+}
+
+export function isEnglish() {
+  return globalThis.ADB_I18N?.locale === 'en';
+}
+
 export function escapeHtml(value) {
   return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'

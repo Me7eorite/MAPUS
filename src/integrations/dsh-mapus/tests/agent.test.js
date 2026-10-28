@@ -123,11 +123,11 @@ test('renderContext 只渲染拿到的字段，空对象不产出提示', () => 
     anti: { isEnabled: true, blocks: 3 },
     hooks: { enabled: ['Bypass_Debugger'] },
   })
-  assert.match(text, /标题：后台/)
-  assert.match(text, /浏览器特征：Nginx、Vue/)
-  assert.match(text, /隐私防护：开启，本站拦截 3 次/)
-  assert.match(text, /脚本：已启用 Bypass_Debugger/)
-  assert.match(text, /已扫描：12 条/)
+  assert.match(text, /Title: 后台/)
+  assert.match(text, /Browser fingerprints: Nginx, Vue/)
+  assert.match(text, /Privacy protection: on, 3 blocked on this site/)
+  assert.match(text, /Scripts: enabled Bypass_Debugger/)
+  assert.match(text, /Scanned: 12 items/)
 })
 
 test('renderHistory 跳过空消息，超长内容截断', () => {
@@ -137,8 +137,8 @@ test('renderHistory 跳过空消息，超长内容截断', () => {
     { role: 'user', content: '扫一下这个站' },
     { role: 'assistant', content: 'a'.repeat(3000) },
   ])
-  assert.match(text, /用户：扫一下这个站/)
-  assert.match(text, /助手：a{1200}$/m)
+  assert.match(text, /User: 扫一下这个站/)
+  assert.match(text, /Assistant: a{1200}$/m)
 })
 
 test('冷会话：历史与现场都以注入形式进入，用户消息走 followup', async () => {
@@ -211,7 +211,7 @@ test('模型请求失败：收口为 error 事件而不是抛给 HTTP 层', asyn
 test('没有进行中的对话时，工具调用被明确拒绝', async () => {
   const ctx = fakeContext()
   const pool = new AgentPool({ ctx, config: resolveConfig({}), log: () => {}, waitBeforeRetry: () => 0 })
-  await assert.rejects(() => pool.callTool('mapus-none', 'page_context', {}), /没有正在进行的对话/)
+  await assert.rejects(() => pool.callTool('mapus-none', 'page_context', {}), /no conversation in progress/)
 })
 
 test('catalog 工具不需要面板即可返回能力清单', async () => {
@@ -306,7 +306,7 @@ test('resume 因 not-found 之外的原因失败时直接抛出，不再落到 c
   const pool = new AgentPool({ ctx, config: resolveConfig({}), log: () => {}, waitBeforeRetry: () => 0 })
   await assert.rejects(
     () => pool.ensureAgent('mapus-masked'),
-    /恢复会话失败：session format is not supported/,
+    /failed to resume the session: session format is not supported/,
   )
   assert.equal(ctx.calls.filter(call => call.kind === 'create').length, 0, '不能再去 create 掩盖原因')
 })
@@ -322,7 +322,7 @@ test('写句柄被占用时重试 resume，用尽后仍报原始原因', async (
   const pool = new AgentPool({ ctx, config: resolveConfig({}), log: () => {}, waitBeforeRetry: () => 0 })
   await assert.rejects(
     () => pool.ensureAgent('mapus-busy'),
-    /恢复会话失败：session "mapus-busy" is already owned by an active write handle/,
+    /failed to resume the session: session "mapus-busy" is already owned by an active write handle/,
   )
   assert.equal(attempts, RESUME_RETRIES + 1, '首次 + 全部重试')
   assert.equal(ctx.calls.filter(call => call.kind === 'create').length, 0, '绝不能退化成 create')
@@ -384,7 +384,7 @@ test('already exists 且句柄始终拿不到时，错误里写清会话 id 与�
     () => pool.ensureAgent('mapus-stuck'),
     error => {
       assert.match(error.message, /mapus-stuck/)
-      assert.match(error.message, /已在 harness 的会话表里注册/)
+      assert.match(error.message, /is registered in the harness session table/)
       assert.match(error.message, /cwd=\/tmp\/mapus-cwd-probe/)
       return true
     },
@@ -527,7 +527,7 @@ test('日志被迁移链拒绝时隔离旧目录并重建会话', async () => {
   assert.equal(existsSync(dir), false, '旧目录必须被挪走')
   const moved = () => readdirSync(quarantineRoot()).filter(name => name.startsWith('mapus-poisoned-'))
   assert.equal(moved().length, 1, '旧日志要留在 quarantine 里')
-  assert.ok(logs.some(line => /已隔离并重建/.test(line)))
+  assert.ok(logs.some(line => /quarantined and rebuilt/.test(line)))
 
   await pool.ensureAgent('mapus-poisoned')
   assert.equal(moved().length, 1)
@@ -538,7 +538,7 @@ test('迁移拒绝但拿不到日志路径时不冒险删，直接报原因', as
     resumeImpl: () => { throw new Error('session format refuses this artifact') },
   })
   const pool = new AgentPool({ ctx, config: resolveConfig({}), log: () => {}, waitBeforeRetry: () => 0 })
-  await assert.rejects(() => pool.ensureAgent('mapus-nopath'), /恢复会话失败：session format refuses/)
+  await assert.rejects(() => pool.ensureAgent('mapus-nopath'), /failed to resume the session: session format refuses/)
   assert.equal(ctx.calls.filter(call => call.kind === 'create').length, 0)
 })
 
@@ -620,7 +620,7 @@ test('preset 注册失败不影响这一轮，只是没有原生工具', async (
   const agent = await pool.ensureAgent('mapus-nopreset')
   assert.equal(agent.id, 'mapus-nopreset')
   assert.equal(events.filter(event => event.what === 'mount').length, 0)
-  assert.ok(logs.some(line => /注册本机工具 preset 失败/.test(line)))
+  assert.ok(logs.some(line => /failed to register the local-tool preset/.test(line)))
 })
 
 test('preset 已被上一次注册占用时照常挂载', async () => {
@@ -639,7 +639,7 @@ test('挂载失败只记一次日志，轮次照常开始', async () => {
   })
   await pool.ensureAgent('mapus-nomount')
   await pool.ensureAgent('mapus-nomount-2')
-  assert.equal(logs.filter(line => /没挂上/.test(line)).length, 1, '同样的失败别每轮刷一遍')
+  assert.equal(logs.filter(line => /no local execution this turn/.test(line)).length, 1, '同样的失败别每轮刷一遍')
 })
 
 test('settleWithin 把超时变成结果，而不是一直等下去', async () => {
@@ -659,7 +659,7 @@ test('注册挂住时不会拖死这一轮，只记一次超时', async () => {
   const { logs, pool } = presetRig({ register: () => new Promise(() => {}), timeoutMs: 20 })
   const agent = await pool.ensureAgent('mapus-hang')
   assert.equal(agent.id, 'mapus-hang')
-  assert.ok(logs.some(line => /注册本机工具 preset 超时/.test(line)))
+  assert.ok(logs.some(line => /timed out registering the local-tool preset/.test(line)))
 })
 
 test('dispose 会注销自己注册的 preset', async () => {
@@ -734,12 +734,12 @@ test('沙箱后端不可用时把会话钉到 danger-full-access，并只警告�
   const modes = agent.session.events.filter(event => event.type === 'sandbox/mode')
   assert.equal(modes.length, 1)
   assert.deepEqual(modes[0].data, { mode: 'danger-full-access' })
-  assert.equal(logs.filter(line => /没有可用的沙箱后端/.test(line)).length, 1)
+  assert.equal(logs.filter(line => /no sandbox backend is available/.test(line)).length, 1)
   assert.equal(probes, 1)
 
   await pool.ensureAgent('mapus-nosandbox-2')
   assert.equal(probes, 1)
-  assert.equal(logs.filter(line => /没有可用的沙箱后端/.test(line)).length, 1)
+  assert.equal(logs.filter(line => /no sandbox backend is available/.test(line)).length, 1)
 })
 
 test('沙箱可用时不写 sandbox/mode，让 harness 默认的 workspace-write 生效', async () => {

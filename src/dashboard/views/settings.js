@@ -147,7 +147,7 @@ export function renderSettings(root) {
 
     <section class="card">
       <div class="card-head">
-        <div><h3>脚本语言</h3><p>影响 脚本在控制台输出的语言</p></div>
+        <div><h3>脚本语言</h3><p>切换界面与脚本输出使用的语言</p></div>
         <select id="adbLang" class="inline-select">
           <option value="auto" ${settings.adb_language === 'auto' ? 'selected' : ''}>跟随浏览器</option>
           <option value="zh_CN" ${settings.adb_language === 'zh_CN' ? 'selected' : ''}>简体中文</option>
@@ -452,7 +452,7 @@ function bind(root) {
 
   $('#adbLang', root).addEventListener('change', async event => {
     await saveStore({ adb_language: event.target.value });
-    toast('语言已更新', 'ok');
+    location.reload();
   });
 
   $('#btnMcpSave', root).addEventListener('click', async () => {

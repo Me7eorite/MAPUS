@@ -13,7 +13,7 @@ function readJson(req) {
     req.on('data', chunk => {
       size += chunk.length
       if (size > MAX_BODY_BYTES) {
-        reject(new Error('请求体过大'))
+        reject(new Error('request body too large'))
         req.destroy()
         return
       }
@@ -26,7 +26,7 @@ function readJson(req) {
         const parsed = JSON.parse(raw)
         resolve(parsed && typeof parsed === 'object' ? parsed : {})
       } catch {
-        reject(new Error('请求体不是合法 JSON'))
+        reject(new Error('request body is not valid JSON'))
       }
     })
     req.on('error', reject)
@@ -76,17 +76,17 @@ export class Bridge {
 
   async start() {
     if (!this.config.bindable) {
-      throw new Error(`拒绝绑定非回环地址 ${this.config.host}：如确需局域网访问，请在 patch 里设置 allowRemote: true`)
+      throw new Error(`refusing to bind a non-loopback address (${this.config.host}): set allowRemote: true in the patch config if LAN access is really needed`)
     }
     const server = createServer((req, res) => {
       this.#route(req, res).catch(error => {
-        this.log('请求处理失败', { url: req.url, error: error && error.message })
-        if (!res.headersSent) sendJson(res, 500, { ok: false, error: error && error.message ? error.message : '内部错误' })
+        this.log('request failed', { url: req.url, error: error && error.message })
+        if (!res.headersSent) sendJson(res, 500, { ok: false, error: error && error.message ? error.message : 'internal error' })
         else res.end()
       })
     })
     server.on('clientError', (error, socket) => {
-      this.log('客户端连接异常', { error: error && error.message })
+      this.log('client connection error', { error: error && error.message })
       try {
         socket.destroy()
       } catch {
@@ -131,7 +131,7 @@ export class Bridge {
     }
 
     if (!this.#authorized(req)) {
-      sendJson(res, 401, { ok: false, error: 'Token 无效：请把插件启动时打印的 token 填到 MAPUS 设置里' }, cors)
+      sendJson(res, 401, { ok: false, error: 'invalid token: paste the token printed at plugin startup into the MAPUS settings' }, cors)
       return
     }
 
@@ -169,7 +169,7 @@ export class Bridge {
       const sessionId = String(body.sessionId || toSessionId(this.config.sessionPrefix, conversation))
       const turn = this.pool.turns.get(sessionId)
       if (!turn) {
-        sendJson(res, 409, { ok: false, error: '没有等待该结果的对话（可能已结束或已取消）' }, cors)
+        sendJson(res, 409, { ok: false, error: 'no conversation is waiting for this result (it may have finished or been cancelled)' }, cors)
         return
       }
       const accepted = turn.settle(String(body.id || ''), {
@@ -192,12 +192,12 @@ export class Bridge {
 
     if (path === ROUTES.shutdown && req.method === 'POST') {
       sendJson(res, 200, { ok: true }, cors)
-      this.log('收到 shutdown 请求，关闭桥')
+      this.log('shutdown requested, closing the bridge')
       setTimeout(() => this.stop(), 50).unref?.()
       return
     }
 
-    sendJson(res, 404, { ok: false, error: `未知路由 ${path}` }, cors)
+    sendJson(res, 404, { ok: false, error: `unknown route ${path}` }, cors)
   }
 
   async #describeModels() {
@@ -209,13 +209,13 @@ export class Bridge {
     const ctx = this.pool && this.pool.ctx
     const llm = ctx ? (typeof ctx.get === 'function' ? ctx.get('llm') : ctx.llm) : null
     if (!llm || typeof llm.listConfigurableProviders !== 'function') {
-      return { ok: true, current, providers: [], note: '当前 dsh 组合里没有可枚举的 llm 服务' }
+      return { ok: true, current, providers: [], note: 'no enumerable llm service in the current dsh composition' }
     }
     let entries = []
     try {
       entries = llm.listConfigurableProviders() || []
     } catch (error) {
-      return { ok: true, current, providers: [], note: `枚举 provider 失败：${error && error.message}` }
+      return { ok: true, current, providers: [], note: `failed to enumerate providers: ${error && error.message}` }
     }
     const providers = []
     for (const entry of entries) {
@@ -237,7 +237,7 @@ export class Bridge {
     const body = await readJson(req)
     const prompt = String(body.prompt || '').trim()
     if (!prompt) {
-      sendJson(res, 400, { ok: false, error: 'prompt 不能为空' }, cors)
+      sendJson(res, 400, { ok: false, error: 'prompt must not be empty' }, cors)
       return
     }
     const conversation = String(body.conversation || '') || `anon-${Date.now().toString(36)}`
@@ -297,7 +297,7 @@ export class Bridge {
       })
       await turn.whenEnded()
     } catch (error) {
-      write({ type: 'error', message: error && error.message ? error.message : '桥处理失败' })
+      write({ type: 'error', message: error && error.message ? error.message : 'bridge error' })
     } finally {
       closed = true
       res.end()

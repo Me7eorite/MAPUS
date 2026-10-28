@@ -1,7 +1,7 @@
 {
   "name": "dsh-mapus",
-  "version": "0.3.0",
-  "description": "MAPUS × DeepSeek Harness 桥：把 MAPUS 侧边栏接成 DSH 的客户端，并把页面扫描、隐私防护与 CDP 浏览器控制注册成 agent 工具。",
+  "version": "3.0.3",
+  "description": "MAPUS x DeepSeek Harness bridge: turns the MAPUS side panel into a DSH client and registers page scanning, privacy protection and CDP browser control as agent tools.",
   "type": "module",
   "main": "index.js",
   "exports": {
@@ -23,7 +23,23 @@
     "browser-automation",
     "pentest"
   ],
+  "author": "icecliffs",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/icecliffs/MAPUS.git",
+    "directory": "src/integrations/dsh-mapus"
+  },
+  "homepage": "https://github.com/icecliffs/MAPUS/tree/main/src/integrations/dsh-mapus",
+  "bugs": {
+    "url": "https://github.com/icecliffs/MAPUS/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"

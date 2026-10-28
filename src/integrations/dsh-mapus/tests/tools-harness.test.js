@@ -56,12 +56,12 @@ test('工具抛错时转成 ok:false 的返回值，而不是让整轮崩掉', {
   const spec = TOOLS.find(tool => tool.name === 'mapus_page_context')
   const definition = dshTools.defineTool(
     buildToolDefinition(spec, async () => {
-      throw new Error('MAPUS 侧边栏没有正在进行的对话')
+      throw new Error('the MAPUS side panel has no conversation in progress')
     }, name => name),
   )
   const value = await definition.execute({}, {})
   assert.equal(value.ok, false)
-  assert.match(value.error, /侧边栏/)
+  assert.match(value.error, /side panel/)
 })
 
 test('目录工具在清单里且没有必填参数', { skip }, () => {

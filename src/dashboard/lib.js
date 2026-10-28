@@ -1,9 +1,39 @@
-import { escapeHtml, toast, copyText } from '../popup/ui.js';
+import { escapeHtml, toast, copyText, t, isEnglish } from '../popup/ui.js';
 
-export { escapeHtml, toast, copyText };
+export { escapeHtml, toast, copyText, t, isEnglish };
 
 export const $ = (selector, root = document) => root.querySelector(selector);
 export const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+
+const LANG_KEY = 'adb_language';
+
+function syncLangButton() {
+  const label = $('#langText');
+  const button = $('#btnLang');
+  if (!label || !button) return;
+  const en = isEnglish();
+  label.textContent = en ? 'EN' : '中';
+  button.title = t(en ? '切到中文' : '切到英文');
+}
+
+async function initI18n() {
+  const api = globalThis.ADB_I18N;
+  if (api) {
+    try { await api.init(chrome); } catch (_) {}
+  }
+  $$('[data-i18n]').forEach(node => { node.textContent = t(node.textContent); });
+  $$('[data-i18n-title]').forEach(node => { node.title = t(node.dataset.i18nTitle); });
+  if (document.documentElement) document.documentElement.lang = isEnglish() ? 'en' : 'zh-CN';
+  syncLangButton();
+  globalThis.MAPUS_I18N_DOM?.start();
+}
+
+export async function toggleLanguage() {
+  try { await chrome.storage.local.set({ [LANG_KEY]: isEnglish() ? 'zh_CN' : 'en' }); } catch (_) {}
+  location.reload();
+}
+
+export { initI18n, syncLangButton };
 
 export const SEV_TEXT = { critical: '严重', high: '高危', medium: '中危', low: '低危', info: '信息' };
 export const STATUS_TEXT = {
@@ -17,12 +47,12 @@ export function esc(value) {
 
 export function dayOf(ts) {
   if (!ts) return '—';
-  return new Date(ts).toLocaleString('zh-CN', { hour12: false });
+  return new Date(ts).toLocaleString(isEnglish() ? 'en-US' : 'zh-CN', { hour12: false });
 }
 
 export function timeOf(ts) {
   if (!ts) return '';
-  return new Date(ts).toLocaleTimeString('zh-CN', { hour12: false });
+  return new Date(ts).toLocaleTimeString(isEnglish() ? 'en-US' : 'zh-CN', { hour12: false });
 }
 
 export function rpc(target, type, extra) {

@@ -162,12 +162,12 @@ export function finishTurn(state, options = {}) {
     context: options.context || null,
   }
   if (reason === 'aborted' || reason === 'blocked') {
-    return { type: 'aborted', ...common, message: reason === 'blocked' ? '本轮被拒绝执行' : '已中止' }
+    return { type: 'aborted', ...common, message: reason === 'blocked' ? 'the turn was blocked' : 'aborted' }
   }
   if (reason === 'error' || options.failure) {
-    const message = options.failure && options.failure.message ? options.failure.message : '模型请求失败（检查 dsh 的 provider / Key）'
+    const message = options.failure && options.failure.message ? options.failure.message : 'model request failed (check the dsh provider and key)'
     const cause = options.failure && options.failure.cause && options.failure.cause.message
-    const detail = typeof cause === 'string' && cause && cause !== message ? `${message}：${cause}` : message
+    const detail = typeof cause === 'string' && cause && cause !== message ? `${message}: ${cause}` : message
     return { type: 'error', ...common, message: detail }
   }
   return {

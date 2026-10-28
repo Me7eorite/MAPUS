@@ -1,4 +1,4 @@
-import { $, $$, el, send, sendTab, activeTab, canInspect, hostOf, copyText, toast, ICON, escapeHtml, openDashboard } from './ui.js';
+import { $, $$, el, send, sendTab, activeTab, canInspect, hostOf, copyText, toast, ICON, escapeHtml, openDashboard, t, isEnglish } from './ui.js';
 import { renderOverview } from './views/overview.js';
 import { renderInfo } from './views/info.js';
 import { renderAgent } from './views/agent.js';
@@ -180,7 +180,7 @@ function renderNav() {
   const nav = $('#nav');
   nav.innerHTML = NAV.map(item => `
     <button class="nav-item ${item.id === state.view ? 'active' : ''}" data-nav="${item.id}" role="tab">
-      ${item.icon}<span>${item.label}</span>
+      ${item.icon}<span>${t(item.label)}</span>
       <span class="badge" data-badge="${item.id}"></span>
     </button>`).join('');
   nav.onclick = event => {
@@ -449,7 +449,49 @@ async function cycleTheme() {
   toast(`主题已切换：${THEME_LABEL[next]}`, 'ok');
 }
 
+
+const LANG_KEY = 'adb_language';
+
+async function initI18n() {
+  const api = globalThis.ADB_I18N;
+  if (!api) return;
+  try {
+    await api.init(chrome);
+  } catch (_) {
+  }
+  applyStaticI18n();
+  syncLangButton();
+  document.documentElement.lang = isEnglish() ? 'en' : 'zh-CN';
+  globalThis.MAPUS_I18N_DOM?.start();
+}
+
+function applyStaticI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(node => {
+    node.textContent = t(node.textContent);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(node => {
+    node.title = t(node.dataset.i18nTitle);
+  });
+}
+
+function syncLangButton() {
+  const label = $('#langText');
+  const button = $('#btnLang');
+  if (!label || !button) return;
+  const en = isEnglish();
+  label.textContent = en ? 'EN' : '中';
+  button.title = t(en ? '切到中文' : '切到英文');
+}
+
+async function toggleLanguage() {
+  try {
+    await chrome.storage.local.set({ [LANG_KEY]: isEnglish() ? 'zh_CN' : 'en' });
+  } catch (_) {}
+  location.reload();
+}
+
 async function init() {
+  await initI18n();
   renderNav();
   const stored = await chrome.storage.local.get(['ui.activeView', 'mapus_enabled', 'mapus_theme']);
   applyTheme(THEME_MODES.includes(stored && stored['mapus_theme']) ? stored['mapus_theme'] : 'auto');
@@ -468,6 +510,7 @@ async function init() {
   $('#btnScan').addEventListener('click', runScan);
   $('#btnExport').addEventListener('click', exportReport);
   $('#btnTheme').addEventListener('click', cycleTheme);
+  $('#btnLang').addEventListener('click', toggleLanguage);
   $('#btnSettings').addEventListener('click', () => openDashboard('settings'));
   $('#btnDashboard').addEventListener('click', () => openDashboard());
   $('#btnAbout').addEventListener('click', () => switchView('about'));
