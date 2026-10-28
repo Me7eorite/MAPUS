@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MAPUS</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <img class="brand-logo" src="../icons/icon48.png" alt="MAPUS">
+      <span class="brand-name">MAPUS</span>
+      <button class="guard" id="guardChip" type="button" role="switch" aria-checked="true" title="点击停用 MAPUS 的全部功能">
+        <span class="guard-track"><i class="guard-knob"></i></span>
+        <span id="guardText">检测中</span>
+      </button>
+      <div class="brand-host" id="hostLine">—</div>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="btnTheme" title="主题：跟随系统">
+          <svg id="iconThemeAuto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.4"/><path d="M12 3.6v16.8M12 3.6a8.4 8.4 0 0 1 0 16.8" fill="currentColor" stroke="none" opacity=".45"/></svg>
+          <svg id="iconThemeLight" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" hidden><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+          <svg id="iconThemeDark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" hidden><path d="M20.6 14.2A8.6 8.6 0 0 1 9.8 3.4a8.6 8.6 0 1 0 10.8 10.8z"/></svg>
+        </button>
+        <button class="icon-btn" id="btnReload" title="重新扫描当前页面">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
+        </button>
+        <button class="icon-btn" id="btnDashboard" title="控制大屏（批量扫描）">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M9 21h6"/><path d="M12 17v4"/><path d="M7 9h4M7 12h6"/></svg>
+        </button>
+        <button class="icon-btn" id="btnAbout" title="关于 MAPUS">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.4"/><path d="M12 10.6V16"/><circle cx="12" cy="8.3" r=".9" fill="currentColor" stroke="none"/></svg>
+        </button>
+        <button class="icon-btn" id="btnSettings" title="设置（控制大屏）">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2 2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15a2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.5-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4a2 2 0 1 1 4 0 1.7 1.7 0 0 0 2.9 1.5l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 21 11a2 2 0 1 1 0 4z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <nav class="nav" id="nav" role="tablist" aria-label="功能导航"></nav>
+
+    <main class="views" id="views">
+      <section class="view" data-view="overview" role="tabpanel"></section>
+      <section class="view" data-view="info" role="tabpanel"></section>
+      <section class="view" data-view="agent" role="tabpanel"></section>
+      <section class="view" data-view="findings" role="tabpanel"></section>
+      <section class="view" data-view="anti" role="tabpanel"></section>
+      <section class="view" data-view="hooks" role="tabpanel"></section>
+      <section class="view" data-view="about" role="tabpanel"></section>
+      <div class="off-veil" id="offVeil" hidden>
+        <div class="off-card">
+          <img class="off-logo" src="../icons/icon128.png" alt="MAPUS">
+          <div class="off-title">MAPUS 已停用</div>
+          <p class="off-desc">扫描、隐私防护、脚本注入与 AI 助手全部暂停，页面不再被注入、改写或发起任何请求。</p>
+          <button class="btn primary wide" id="btnEnable">重新启用</button>
+          <button class="btn ghost wide" id="btnReloadOff">刷新当前页面</button>
+          <p class="off-hint">已打开的页面刷新一次后才会完全干净</p>
+        </div>
+      </div>
+    </main>
+
+    <footer class="statusbar">
+      <div class="status-info">
+        <div class="status-meta">
+          <span id="statusText">正在初始化…</span>
+          <span id="statusPct" class="status-pct">0%</span>
+        </div>
+        <div class="progress"><i id="progressBar" style="width:0%"></i></div>
+      </div>
+      <div class="status-actions">
+        <button class="btn ghost sm" id="btnExport" title="导出当前页面报告">导出</button>
+        <button class="btn primary sm" id="btnScan">扫描</button>
+      </div>
+    </footer>
+  </div>
+
+  <script src="../background/pagefn.js"></script>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

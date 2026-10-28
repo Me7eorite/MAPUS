@@ -1,0 +1,96 @@
+{
+  "manifest_version": 3,
+  "name": "MAPUS",
+  "version": "3.0.2",
+  "description": "隐私防护 · 敏感数据检查 · 技术栈识别 · 脚本增强 · 能读懂当前网页的 AI 助手，所有规则都可自定义",
+  "minimum_chrome_version": "120",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "sidePanel",
+    "activeTab",
+    "scripting",
+    "storage",
+    "webRequest",
+    "cookies",
+    "tabs",
+    "webNavigation",
+    "browsingData",
+    "declarativeNetRequest",
+    "declarativeNetRequestFeedback",
+    "notifications",
+    "alarms",
+    "debugger",
+    "userScripts"
+  ],
+  "host_permissions": [
+    "*://*/*"
+  ],
+  "background": {
+    "service_worker": "background/background.js"
+  },
+  "side_panel": {
+    "default_path": "popup/popup.html"
+  },
+  "action": {
+    "default_title": "MAPUS — 点击打开侧边栏",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content/anti/nextanti.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content/adb/bridge.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content/utils/logger.js",
+        "content/config/scanner.config.js",
+        "content/filters/scanner.filter.js",
+        "content/security-detector.js",
+        "content/content.js",
+        "content/overview-panel.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "scripts/*.js",
+        "inject/nextanti.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}

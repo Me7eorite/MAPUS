@@ -1,0 +1,23 @@
+{
+  "name": "mapus-build",
+  "version": "3.0.2",
+  "private": true,
+  "description": "MAPUS 扩展的打包与发布流程（源码不随包分发）",
+  "scripts": {
+    "build:ui": "node build/ui.mjs",
+    "build": "node build/ui.mjs && node build/build.mjs --level=mid",
+    "build:min": "node build/ui.mjs && node build/build.mjs --level=min",
+    "build:max": "node build/ui.mjs && node build/build.mjs --level=max",
+    "pack": "npm run pack:crx && npm run pack:dsh",
+    "pack:crx": "node build/ui.mjs && node build/build.mjs --level=max && node build/pack.mjs",
+    "pack:dsh": "npm pack ./integrations/dsh-mapus --pack-destination release",
+    "pack:min": "node build/ui.mjs && node build/build.mjs --level=min && node build/pack.mjs",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "javascript-obfuscator": "^5.9.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}

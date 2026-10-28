@@ -1,0 +1,15 @@
+# dsh-mapus 的 patch 层：在 profile 里插入一行，host 半天都不用改。
+#
+# 这一行只做一件事：把插件的 host 半边挂上去。挂上之后它会：
+#   1. 在 127.0.0.1:7355 起一个回环 HTTP 桥（MAPUS 侧边栏从这里进来）；
+#   2. 把 MAPUS 的页面 / 浏览器 / 本机执行能力注册成 agent 作用域工具。
+#
+# config 里每一项都可以省略，省略即用默认值：
+#   token 不填＝首次启动生成并写入 $DSH_HOME/mapus-bridge/token（0600）
+#   provider / model 不填＝跟随 profile 的默认模型
+- insert:
+    - id: mapus-bridge
+      name: dsh-mapus
+      config:
+        host: 127.0.0.1
+        port: 7355
