@@ -91,6 +91,20 @@ curl -s -H "X-MAPUS-Token: $(cat ~/.dsh/mapus-bridge/token)" \
   http://127.0.0.1:7355/v1/models
 ```
 
+## Install
+
+Three channels, same package, pick one:
+
+| channel | command |
+| --- | --- |
+| npm | `dsh plugin --profile web add dsh-mapus` |
+| local checkout | `dsh plugin --profile web add /path/to/MAPUS/integrations/dsh-mapus` |
+| release zip | unzip `dsh-mapus.zip`, then `dsh plugin --profile web add ./dsh-mapus` |
+
+All three need `pnpm` on PATH (`dsh plugin add` is `pnpm add` underneath); the
+copy bundled with dsh lives at
+`~/.dsh/dsh-runtimes/dsh-primary-runtime/dependencies/pnpm`.
+
 ## Install into a profile (persistent, recommended)
 
 Once installed, `dsh --profile web` already carries the bridge, no `--patch`
@@ -98,11 +112,10 @@ needed, and `bin/start.sh` detects the installed state and stops stacking an
 overlay (two overlays would register the same bridge twice and collide on the
 port).
 
-**Option 1: one command** (needs `pnpm` on PATH; the copy bundled with dsh lives
-at `~/.dsh/dsh-runtimes/dsh-primary-runtime/dependencies/pnpm`)
+**Option 1: one command** (any row of the table above)
 
 ```bash
-dsh plugin --profile web add /path/to/MAPUS/integrations/dsh-mapus
+dsh plugin --profile web add dsh-mapus
 ```
 
 **Option 2: register by hand** (when `dsh plugin add` will not run, see the
